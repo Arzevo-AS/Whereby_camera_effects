@@ -16,8 +16,10 @@ const baseCanvasParams = {
     maskFilter: "blur(4px)",
     personOperation: "source-in",
     personFilter: "none",
+    personFillColor: "none",
     backgroundOperation: "destination-over",
     backgroundFilter: "none",
+    backgroundFillColor: "none",
 };
 
 function getBlurCanvasParams(amount) {
@@ -33,8 +35,65 @@ function getBlurCanvasParams(amount) {
     return { ...baseCanvasParams, maskFilter: "blur(8px)", backgroundFilter: "blur(8px)", crop: 8 };
 }
 
+function getAnonymizationCanvasParams(type, amount, greyscale, color, applyBackground) {
+    const params = { ...baseCanvasParams, backgroundFilter: "none" };
+    switch (type) {
+        case "pixelation": {
+            ///TODO: Implement pixelation with WebGL shader for better performance and quality, currently it is done with canvas blur which is not ideal
+            const pixelationPerson = amount === "slight" ? 8 : amount === "heavy" ? 20 : 12;
+            params.personFilter = `blur(${pixelationPerson}px)`;
+            params.maskFilter = "none"; // to avoid blurring the edges of the pixelation
+            if (applyBackground) {
+                params.backgroundFilter = `blur(${blurAmount}px)`;
+            }
+            break;
+        }
+        case "blur": {
+            const blurAmount = amount === "slight" ? 4 : amount === "heavy" ? 16 : 8;
+            params.personFilter = `blur(${blurAmount}px)`;
+            params.maskFilter = "none"; // to avoid blurring the edges of the pixelation
+            if (applyBackground) {
+                params.backgroundFilter = `blur(${blurAmount}px)`;
+            } else {
+                params.maskFilter = "blur(8px)"; // Blurring the egde around the person and background
+            }
+            if (greyscale) {
+                params.personFilter += " grayscale(100%)";
+                if (applyBackground) {
+                    params.backgroundFilter += " grayscale(100%)";
+                }
+            }
+            break;
+        }
+        case "silhouette": {
+            params.personFilter = "brightness(0%)";
+            params.maskFilter = "blur(8px)"; // to avoid blurring the edges of the pixelation
+            params.backgroundFilter = "none";
+            if (applyBackground) {
+                params.backgroundFillColor = color || "#ffffff";
+            }
+            break;
+        }
+        /// In color we fill in the whole image with the chosen. This filter is for when an avatar is used over the person.
+        /// As it is not the same effect could be achieved by turning off the camera.
+        case "color": {
+            params.personFillColor = color || "#ffffff";
+            params.maskFilter = "none";
+            params.backgroundFilter = "none";
+            if (applyBackground) {
+                params.backgroundFillColor = color || "#ffffff";
+            }
+            break;
+        }
+    }
+
+    return params;
+}
+
 function getCanvasParams(params) {
     if (params.backgroundBlur) return getBlurCanvasParams(params.backgroundBlur.amount);
+    if (params.anonymization) return getAnonymizationCanvasParams(params.anonymization.type, 
+        params.anonymization.amount, params.anonymization.greyscale, params.anonymization.color, params.anonymization.applyBackground);
     return baseCanvasParams;
 }
 
@@ -135,7 +194,12 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
             // draw person with effects
             effectCtx.globalCompositeOperation = canvasParams.personOperation;
             effectCtx.filter = canvasParams.personFilter;
-            effectCtx.drawImage(frame, 0, 0);
+            if (canvasParams.personFillColor !== "none") {
+                effectCtx.fillStyle = canvasParams.personFillColor;
+                effectCtx.fillRect(0, 0, videoWidth, videoHeight);
+            } else {
+                effectCtx.drawImage(frame, 0, 0);
+            }
 
             // draw background with effects
             effectCtx.globalCompositeOperation = canvasParams.backgroundOperation;
@@ -154,6 +218,10 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
                     0,
                 );
             } else {
+                if (canvasParams.backgroundFillColor !== "none") {
+                    effectCtx.fillStyle = canvasParams.backgroundFillColor;
+                    effectCtx.fillRect(0, 0, videoWidth, videoHeight);
+                }
                 effectCtx.drawImage(frame, 0, 0);
             }
 

@@ -108,6 +108,8 @@ const pipelines = {
     },
 };
 
+///TODO: Add own anonymization presets to list, like pixelation, or cartoonify
+
 const presets: Preset[] = [
     {
         id: "slight-blur",
@@ -175,6 +177,82 @@ presets.push(
                     backgroundType: "video" as const,
                     backgroundUrl: getBackgroundUrl(name),
                 },
+            },
+        },
+    })),
+);
+
+// Anonymization presets
+presets.push(
+    ...[
+        {
+            id: "pixelation",
+            params: {
+                anonymization: {
+                    type: "pixelation" as const,
+                    applyBackground: true,
+                    amount: "normal" as const,
+                },
+            },
+        },
+        {
+            id: "blur",
+            params: {
+                anonymization: {
+                    type: "blur" as const,
+                    applyBackground: true,
+                    amount: "heavy" as const,
+                    greyscale: false,
+                },
+            },
+        },
+        {
+            id: "blur-greyscale",
+            params: {
+                anonymization: {
+                    type: "blur" as const,
+                    applyBackground: true,
+                    amount: "heavy" as const,
+                    greyscale: true,
+                },
+            },
+        },
+        {
+            id: "blur-person",
+            params: {
+                anonymization: {
+                    type: "blur" as const,
+                    applyBackground: false,
+                    amount: "heavy" as const,
+                    greyscale: true,
+                },
+            },
+        },
+        {
+            id: "silhouette",
+            params: {
+                anonymization: {
+                    type: "silhouette" as const,
+                    color: "#ffffff",
+                    applyBackground: true,
+                },
+            },
+        },
+        {
+            id: "color",
+            params: {
+                anonymization: {
+                    type: "color" as const,
+                    color: "#006aff",
+                    applyBackground: true,
+                },
+            },
+        },
+    ].map(({ id, params }) => ({
+        id: `anonymization-${id}`,
+        pipelineConfigs: {
+            tfliteSegmentCanvasEffects: {
+                params,
             },
         },
     })),
@@ -301,6 +379,8 @@ export const getUsablePresets = (
             ),
         )
         .map((preset) => preset.id);
+
+///TODO: Add own kind property to presets, maybe anonymization presets.
 
 // returns metadata for available presets and whether they are supported in the current environment
 export const getPresets = (options?: {

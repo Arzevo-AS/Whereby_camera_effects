@@ -29,6 +29,13 @@ interface Params {
     backgroundBlur?: {
         amount: "slight" | "normal" | "heavy";
     };
+    anonymization?: {
+        type: "pixelation" | "blur" | "silhouette" | "color";
+        applyBackground: boolean;
+        amount?: "slight" | "normal" | "heavy";
+        greyscale?: boolean;
+        color?: string;
+    };
 }
 
 interface Preset {

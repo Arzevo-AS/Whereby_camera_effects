@@ -61,5 +61,13 @@ we have two ways of testing locally:
 1. Add the environment variable `REACT_APP_IS_DEV=true` to your local `.env` file.
 This will make the library load assets from the local assets folder.
 
-2. If you don't use the env variable, or it's set to `false`, the static assets
+2. Add a whereby room url to the `STORYBOOK_ROOM=<URL>` to your local `.env` file.
+
+3. Optional: Add the whereby room key to `STORYBOOK_ROOM_HOST_ROOMKEY=<key>` (Only key not url)
+
+4. If you don't use the env variable, or it's set to `false`, the static assets
 will be loaded from the CDN as in production.
+
+5. Build cmaera-effects package: `cd packages/camera-effects && pnpm build:dev`
+
+6. Start the storybook: `cd packages/browser-sdk && pnpm storybook`
