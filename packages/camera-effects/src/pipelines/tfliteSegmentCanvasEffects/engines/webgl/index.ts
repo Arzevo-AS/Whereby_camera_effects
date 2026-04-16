@@ -4,9 +4,15 @@ import { loadSegmentationModel } from "../../segmentationModel";
 import { compileShader, createTexture, glsl } from "./webglHelper";
 import { buildBackgroundBlurStage } from "./backgroundBlurStage";
 import { buildBackgroundImageStage } from "./backgroundImageStage";
+import { buildAnonymizationStage } from "./anonymizationStage";
 import { buildImproveMaskStage } from "./improveMaskStage";
 import { buildTFLiteOutputToMaskStage } from "./tfliteOutputToMaskStage";
 import { buildTFLiteInputStage } from "./tfliteInputStage";
+
+const MODE_NONE = 0;
+const MODE_BLUR = 1;
+const MODE_SILHOUETTE = 2;
+const MODE_COLOR = 3;
 
 function getBlurEngineParams(params) {
     switch (params.amount) {
@@ -22,13 +28,80 @@ function getBlurEngineParams(params) {
     }
 }
 
+function getAnonymizationEngineParams(params) {
+    const base = {
+        personMode: MODE_NONE,
+        personBlurRadius: 0,
+        blurKernel: "og8",
+        personGreyscale: false,
+        personColor: params.color || "#ffffff",
+        backgroundMode: MODE_NONE,
+        backgroundBlurRadius: 0,
+        backgroundGreyscale: false,
+        backgroundColor: params.color || "#ffffff",
+        maskFeatherPx: 0,
+    };
+
+    switch (params.type) {
+        case "pixelation": {
+            const pixelationAmount = params.amount === "slight" ? 0.8 : params.amount === "heavy" ? 1.8 : 1.2;
+            return {
+                ...base,
+                blurKernel: "og4",
+                personMode: MODE_BLUR,
+                personBlurRadius: pixelationAmount,
+                backgroundMode: params.applyBackground ? MODE_BLUR : MODE_NONE,
+                backgroundBlurRadius: params.applyBackground ? pixelationAmount : 0,
+            };
+        }
+        case "blur": {
+            const blurAmount = params.amount === "slight" ? 0.9 : params.amount === "heavy" ? 2.8 : 1.7;
+            const blurKernel = params.amount === "slight" ? "og6" : params.amount === "heavy" ? "og12" : "og9";
+            return {
+                ...base,
+                blurKernel,
+                personMode: MODE_BLUR,
+                personBlurRadius: blurAmount,
+                personGreyscale: !!params.greyscale,
+                backgroundMode: params.applyBackground ? MODE_BLUR : MODE_NONE,
+                backgroundBlurRadius: params.applyBackground ? blurAmount : 0,
+                backgroundGreyscale: params.applyBackground && !!params.greyscale,
+                // Mirror canvas behavior where blur-person mode softens mask edge.
+                maskFeatherPx: params.applyBackground ? 0 : 8,
+            };
+        }
+        case "silhouette": {
+            return {
+                ...base,
+                personMode: MODE_SILHOUETTE,
+                backgroundMode: params.applyBackground ? MODE_COLOR : MODE_NONE,
+                backgroundColor: params.color || "#ffffff",
+                // Mirror canvas mask blur for silhouette mode.
+                maskFeatherPx: 8,
+            };
+        }
+        case "color": {
+            return {
+                ...base,
+                personMode: MODE_COLOR,
+                personColor: params.color || "#ffffff",
+                backgroundMode: params.applyBackground ? MODE_COLOR : MODE_NONE,
+                backgroundColor: params.color || "#ffffff",
+            };
+        }
+        default:
+            return base;
+    }
+}
+
 function getEngineParams(params) {
     const baseEngineParams = {
         coverage: params.coverage,
     };
     if (params.backgroundBlur) {
-        return { baseEngineParams, ...getBlurEngineParams(params.backgroundBlur) };
+        return { ...baseEngineParams, ...getBlurEngineParams(params.backgroundBlur) };
     }
+    if (params.anonymization) return { ...baseEngineParams, ...getAnonymizationEngineParams(params.anonymization) };
     return baseEngineParams;
 }
 
@@ -136,17 +209,31 @@ export async function createWebGLEngine(videoWidth, videoHeight, setup, effectCa
         videoHeight,
         engineParams,
     );
+    const anonymizationStage = buildAnonymizationStage(
+        gl,
+        positionBuffer,
+        texCoordBuffer,
+        improvedMaskTexture,
+        improvedMaskWidth,
+        improvedMaskHeight,
+        initialBackgroundFrame,
+        videoWidth,
+        videoHeight,
+        engineParams,
+    );
 
     return {
         effectCtx: gl,
         updateBackgroundFrame(frame, _, reInit) {
             backgroundImageStage.updateBackgroundImage(frame, reInit);
+            anonymizationStage.updateBackgroundImage(frame, reInit);
         },
         updateParams(updatedParams) {
             params = updatedParams;
             engineParams = getEngineParams(params);
             backgroundBlurStage.updateParams(engineParams);
             backgroundImageStage.updateParams(engineParams);
+            anonymizationStage.updateParams(engineParams);
         },
         processFrame(frame) {
             gl.clearColor(0, 0, 0, 0);
@@ -159,10 +246,15 @@ export async function createWebGLEngine(videoWidth, videoHeight, setup, effectCa
             tflite._runInference();
             tfliteOutputToMaskStage.render();
             improveMaskStage.render();
+            if (params.anonymization) {
+                anonymizationStage.render();
+                return;
+            }
             // eslint-disable-next-line
             params.backgroundUrl ? backgroundImageStage.render() : backgroundBlurStage.render();
         },
         dispose() {
+            anonymizationStage.cleanUp();
             backgroundImageStage.cleanUp();
             backgroundBlurStage.cleanUp();
             improveMaskStage.cleanUp();
