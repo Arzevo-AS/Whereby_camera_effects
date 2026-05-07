@@ -10,6 +10,7 @@ import {
 } from "../segmentationModel";
 
 import { createCanvas } from "../../shared";
+import { DrawingUtils, FaceLandmarker, FaceLandmarkerResult, FilesetResolver } from "@mediapipe/tasks-vision";
 
 const baseCanvasParams = {
     maskOperation: "copy",
@@ -97,6 +98,31 @@ function getCanvasParams(params) {
     return baseCanvasParams;
 }
 
+const baseAvatarParams = {
+    enabled: false,
+}
+
+///TODO: Implement
+function getAvatarCanvasParams(type, color) {
+    const params = { ...baseAvatarParams };
+    switch (type) {
+        case "wireframe": {
+            params.enabled = true;
+            break;
+        }
+        case "2d": {
+            params.enabled = true;
+            break;
+        }
+        case "3d": {
+            params.enabled = true;
+            // 3D avatar rendering is not supported in canvas engine, it requires WebGL. This is a placeholder for future implementation.
+            break;
+        }
+    }
+    return params;
+}
+
 export async function createCanvasEngine(videoWidth, videoHeight, setup, effectCanvas, params) {
     // tflite, model
     const {
@@ -109,7 +135,46 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
         segmentationPixelCount,
     } = await loadSegmentationModel(setup.segmentationModelId);
 
+    // path/to/wasm/root
+    const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+    );
+    ///TODO: Look into using GPU instead
+    ///TODO: Set options using params.avatar when implemented
+    const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task" ?? "../../../../assets/face_landmarker.task",
+        delegate: "CPU",
+      },
+      numFaces: 1,
+      minDetectionConfidence: 0.5,
+      minFacePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+      outputFaceBlendshapes: false,
+      outputFacialTransformationMatrixes: false,
+      minSuppressionThreshold: 0.5,
+      runningMode: 'VIDEO',
+    });
+
+    const avatarCanvas = createCanvas(inputWidth, inputHeight);
+    const avatarCtx = avatarCanvas.getContext("2d", {
+        willReadFrequently: true,
+    });
+
+    const drawConnectors = (drawingUtils: DrawingUtils, landmarks: any[]) => {
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: '#C0C0C070', lineWidth: 1});
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, { color: '#FF3030' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, { color: '#FF3030' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, { color: '#30FF30' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, { color: '#30FF30' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, { color: '#E0E0E0' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, { color: '#E0E0E0' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, { color: '#FF3030' });
+        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, { color: '#30FF30' });
+    };
+
     let canvasParams = getCanvasParams(params);
+    let avatarParams = getAvatarCanvasParams(params.avatar?.type, params.avatar?.color);
 
     // canvas for rendering images and running segmentation model
     const segmentationCanvas = createCanvas(inputWidth, inputHeight);
@@ -142,6 +207,7 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
     updateCrop();
 
     const effectCtx = effectCanvas.getContext("2d");
+    const utils = new DrawingUtils(effectCtx);
 
     return {
         effectCtx,
@@ -151,6 +217,7 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
         },
         updateParams(updatedParams) {
             canvasParams = getCanvasParams(updatedParams);
+            avatarParams = getAvatarCanvasParams(updatedParams.avatar?.type, updatedParams.avatar?.color);
             updateCrop();
         },
         processFrame(frame) {
@@ -199,6 +266,21 @@ export async function createCanvasEngine(videoWidth, videoHeight, setup, effectC
                 effectCtx.fillRect(0, 0, videoWidth, videoHeight);
             } else {
                 effectCtx.drawImage(frame, 0, 0);
+            }
+
+            if (avatarParams.enabled) {
+                // Avatar rendering is not supported in canvas engine, it requires WebGL. This is a placeholder for future implementation.
+                //TODO: Change to use detect from video instead
+                //TODO: Is this the correct frame to run detection on? 
+                const result : FaceLandmarkerResult = faceLandmarker.detectForVideo(frame, performance.now());
+                if (result.faceLandmarks.length > 0) {
+                    effectCtx.globalCompositeOperation = "source-over";
+                    effectCtx.filter = "none";
+                    //const utils = new DrawingUtils(effectCtx);
+                    for (const landmarks of result.faceLandmarks) {
+                        drawConnectors(utils, landmarks); // Pass the detected landmarks here when implemented
+                    }
+                }
             }
 
             // draw background with effects

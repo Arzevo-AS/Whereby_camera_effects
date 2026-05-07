@@ -36,6 +36,11 @@ interface Params {
         greyscale?: boolean;
         color?: string;
     };
+    avatar?: {
+        type: "wireframe" | "2d" | "3d";
+        color ?: string;
+        modelUrl?: Promise<unknown> | string;
+    };
 }
 
 interface Preset {

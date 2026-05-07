@@ -248,6 +248,30 @@ presets.push(
                 },
             },
         },
+        {
+            id: "wireframe-avatar",
+            params: {
+                avatar: {
+                    type: "wireframe" as const,
+                    color: "#03fa07",
+                },
+            },
+        },
+        {
+            id: "wireframe-avatar-blur",
+            params: {
+                avatar: {
+                    type: "wireframe" as const,
+                    color: "#03fa07",
+                },
+                anonymization: {
+                    type: "blur" as const,
+                    applyBackground: true,
+                    amount: "heavy" as const,
+                    greyscale: false,
+                },
+            },
+        },
     ].map(({ id, params }) => ({
         id: `anonymization-${id}`,
         pipelineConfigs: {

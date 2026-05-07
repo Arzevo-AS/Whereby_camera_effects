@@ -42,6 +42,8 @@
         "rollup-plugin-web-worker-loader": "^1.7.0"
     },
     "dependencies": {
+        "@mediapipe/tasks-vision": "0.10.35",
+        "@whereby.com/camera-effects": "workspace:^",
         "events": "^3.3.0",
         "wasm-feature-detect": "^1.8.0",
         "webrtc-adapter": "9.0.4"

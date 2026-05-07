@@ -595,6 +595,12 @@ importers:
 
   packages/camera-effects:
     dependencies:
+      '@mediapipe/tasks-vision':
+        specifier: 0.10.35
+        version: 0.10.35
+      '@whereby.com/camera-effects':
+        specifier: workspace:^
+        version: 'link:'
       events:
         specifier: ^3.3.0
         version: 3.3.0
@@ -2667,6 +2673,9 @@ packages:
       '@types/react': '>=16'
       react: '>=16'
 
+  '@mediapipe/tasks-vision@0.10.35':
+    resolution: {integrity: sha512-HOvadwVRE6JC+45nyYhmnywnr5h/J8KZvOeUNVOG9q/0875pZgItznFB9bRTvLc264YSJqiZ1NsIpCStJw/egg==}
+
   '@napi-rs/wasm-runtime@0.2.11':
     resolution: {integrity: sha512-9DPkXtvHydrcOsopiYpUgPHpmj0HWZKMUnL2dZqpvC42lsratuBG06V5ipyno0fUek5VlFsNQ+AcFATSrJXgMA==}
 
@@ -4017,6 +4026,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@ungap/trim@0.2.0':
     resolution: {integrity: sha512-CfsUxeZ2R/O3EGCOe+IkAU32yHOdO+mCRmtavSIQ4HZN3Jiq/ynGzq8/asyamd28U26UJmpSV/TC7+p7qELKrg==}
@@ -9214,10 +9224,12 @@ packages:
 
   uuid@7.0.3:
     resolution: {integrity: sha512-DPSke0pXhTZgoF/d+WSt2QaKMCFSfx7QegxEWT+JOuHF5aWrKEn0G+ztjuJg/gG8/ItK+rbPCD/yNv8yyih6Cg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uwire@1.1.0:
@@ -11729,6 +11741,8 @@ snapshots:
       '@types/mdx': 2.0.13
       '@types/react': 19.1.8
       react: 19.1.0
+
+  '@mediapipe/tasks-vision@0.10.35': {}
 
   '@napi-rs/wasm-runtime@0.2.11':
     dependencies:
