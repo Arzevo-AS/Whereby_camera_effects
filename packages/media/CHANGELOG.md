@@ -1,5 +1,103 @@
 # @whereby.com/media
 
+## 8.2.8
+
+### Patch Changes
+
+- 4c78d73: Add SFU typing related to send/recv transports
+
+## 8.2.7
+
+### Patch Changes
+
+- 44135ea: Replace rtcstats with published version
+
+## 8.2.6
+
+### Patch Changes
+
+- 06c721c: Use mediasoup-client 3.19.0
+
+## 8.2.5
+
+### Patch Changes
+
+- b5be48d: Add SFU analytics for closing micProducer
+
+## 8.2.4
+
+### Patch Changes
+
+- 7ba83ae: Fix setLocalDescription error during P2P reconnect
+
+## 8.2.3
+
+### Patch Changes
+
+- c1d8afa: Update P2P addTrack analytics
+
+## 8.2.2
+
+### Patch Changes
+
+- 629c999: Only add stopped video track if there are no video tracks in camera stream
+
+## 8.2.1
+
+### Patch Changes
+
+- 2bfa3f0: Use mediasoup-client fork 3.18.7
+
+## 8.2.0
+
+### Minor Changes
+
+- fe31b39: Allow for setting remote client media prefs on RtcManager to avoid sending video to clients that don't need to receive it
+
+## 8.1.0
+
+### Minor Changes
+
+- 8a9e318: Extend ICE connection metrics
+
+## 8.0.11
+
+### Patch Changes
+
+- 8c7a3c9: Add Vega analytics for produce and consume failures
+
+## 8.0.10
+
+### Patch Changes
+
+- f7dacba: Use mediasoup-client fork to handle Firefox m-section recycle
+
+## 8.0.9
+
+### Patch Changes
+
+- b7d9de3: Fix this binding in CPU pressure detector logger
+
+## 8.0.8
+
+### Patch Changes
+
+- db7e0df: Fix errors when observing CPU pressure
+
+## 8.0.7
+
+### Patch Changes
+
+- 0dbcd5f: Add VegaConnection analytics
+
+## 8.0.6
+
+### Patch Changes
+
+- 9628440: Remove periodic packetloss issue detector
+- ffa3d5e: Remove P2P investigation analytics
+- 30c9f23: Remove change bandwidth guard for empty SDP type
+
 ## 8.0.5
 
 ### Patch Changes

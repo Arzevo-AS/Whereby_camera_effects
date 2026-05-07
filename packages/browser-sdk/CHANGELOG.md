@@ -1,5 +1,154 @@
 # @whereby.com/browser-sdk
 
+## 3.20.10
+
+### Patch Changes
+
+- Updated dependencies [4c78d73]
+    - @whereby.com/media@8.2.8
+    - @whereby.com/core@1.10.10
+
+## 3.20.9
+
+### Patch Changes
+
+- Updated dependencies [44135ea]
+    - @whereby.com/media@8.2.7
+    - @whereby.com/core@1.10.9
+
+## 3.20.8
+
+### Patch Changes
+
+- Updated dependencies [06c721c]
+    - @whereby.com/media@8.2.6
+    - @whereby.com/core@1.10.8
+
+## 3.20.7
+
+### Patch Changes
+
+- Updated dependencies [b5be48d]
+    - @whereby.com/media@8.2.5
+    - @whereby.com/core@1.10.7
+
+## 3.20.6
+
+### Patch Changes
+
+- Updated dependencies [7ba83ae]
+    - @whereby.com/media@8.2.4
+    - @whereby.com/core@1.10.6
+
+## 3.20.5
+
+### Patch Changes
+
+- Updated dependencies [c1d8afa]
+    - @whereby.com/media@8.2.3
+    - @whereby.com/core@1.10.5
+
+## 3.20.4
+
+### Patch Changes
+
+- Updated dependencies [629c999]
+    - @whereby.com/media@8.2.2
+    - @whereby.com/core@1.10.4
+
+## 3.20.3
+
+### Patch Changes
+
+- Updated dependencies [8d70188]
+    - @whereby.com/core@1.10.3
+
+## 3.20.2
+
+### Patch Changes
+
+- Updated dependencies [2bfa3f0]
+    - @whereby.com/media@8.2.1
+    - @whereby.com/core@1.10.2
+
+## 3.20.1
+
+### Patch Changes
+
+- Updated dependencies [fe31b39]
+    - @whereby.com/media@8.2.0
+    - @whereby.com/core@1.10.1
+
+## 3.20.0
+
+### Minor Changes
+
+- 33d60b7: Add camera, mic, and connection error subscribers to RoomConnectionClient
+
+### Patch Changes
+
+- Updated dependencies [8a9e318]
+- Updated dependencies [33d60b7]
+    - @whereby.com/media@8.1.0
+    - @whereby.com/core@1.10.0
+
+## 3.19.17
+
+### Patch Changes
+
+- Updated dependencies [8c7a3c9]
+    - @whereby.com/media@8.0.11
+    - @whereby.com/core@1.9.17
+
+## 3.19.16
+
+### Patch Changes
+
+- Updated dependencies [f7dacba]
+    - @whereby.com/media@8.0.10
+    - @whereby.com/core@1.9.16
+
+## 3.19.15
+
+### Patch Changes
+
+- Updated dependencies [84c0766]
+    - @whereby.com/core@1.9.15
+
+## 3.19.14
+
+### Patch Changes
+
+- Updated dependencies [b7d9de3]
+    - @whereby.com/media@8.0.9
+    - @whereby.com/core@1.9.14
+
+## 3.19.13
+
+### Patch Changes
+
+- Updated dependencies [db7e0df]
+    - @whereby.com/media@8.0.8
+    - @whereby.com/core@1.9.13
+
+## 3.19.12
+
+### Patch Changes
+
+- Updated dependencies [0dbcd5f]
+    - @whereby.com/media@8.0.7
+    - @whereby.com/core@1.9.12
+
+## 3.19.11
+
+### Patch Changes
+
+- Updated dependencies [9628440]
+- Updated dependencies [ffa3d5e]
+- Updated dependencies [30c9f23]
+    - @whereby.com/media@8.0.6
+    - @whereby.com/core@1.9.11
+
 ## 3.19.10
 
 ### Patch Changes

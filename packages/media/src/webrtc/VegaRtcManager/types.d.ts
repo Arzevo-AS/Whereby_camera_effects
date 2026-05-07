@@ -30,7 +30,53 @@ type VegaProduceDataResponse = {
 
 type VegaTransportDirection = "send" | "recv";
 
+type TransportAppData = {
+    localClosed: boolean;
+    iceRestartStarted?: number;
+};
+
+type VegaMediaSourceType = "mic" | "webcam" | "screenvideo" | "screenaudio";
+
+type ProducerAppData = {
+    paused: boolean;
+    // localClosed is updated locally, SFU and corresponding consumers do not know about the property.
+    localClosed?: boolean;
+    streamId: string;
+    screenShare: boolean;
+    source: VegaMediaSourceType;
+    sourceClientId: string;
+};
+
+type DataProducerAppData = {
+    producerId: string;
+    clientId: string;
+    localClosed?: boolean;
+};
+
+type ConsumerAppData = {
+    sourceClientId: string;
+    screenShare: boolean;
+    streamId: string;
+    paused: boolean;
+    localPaused: boolean;
+    localClosed: boolean;
+    spatialLayer: number;
+    temporalLayer?: number;
+    source: VegaMediaSourceType;
+    screenshare: boolean;
+    colocation?: string;
+};
+
+type DataConsumerAppData = {
+    clientId: string;
+    producerId: string;
+    colocation?: string;
+    localClosed: boolean;
+};
+
 type VegaAnalytics = {
+    vegaUnknownResponse: number;
+    vegaRequestTimeout: number;
     vegaJoinFailed: number;
     vegaJoinWithoutVegaConnection: number;
     vegaCreateTransportWithoutVegaConnection: number;
@@ -39,9 +85,23 @@ type VegaAnalytics = {
     vegaIceRestartWrongTransportId: number;
     vegaNonErrorRejectionValueGUMError: number;
     vegaReplaceTrackNoProducerNoEnabledTrack: number;
+    vegaMicProducerFailed: number;
+    vegaWebcamProducerFailed: number;
+    vegaScreenVideoProducerFailed: number;
+    vegaScreenAudioProducerFailed: number;
+    vegaConsumerCreationFailed: number;
+    vegaMicProducerClosed: number;
     micTrackEndedCount: number;
     camTrackEndedCount: number;
+    numNewPc: number;
+    numIceConnected: number;
+    numIceDisconnected: number;
+    numIceFailed: number;
 };
+
+type VegaAnalyticMetric = keyof VegaAnalytics;
+
+export type VegaIncrementAnalyticMetric = (metric: VegaAnalyticMetric) => void;
 
 type MediaStreamWhichMayHaveInboundId = MediaStream & { inboundId?: string };
 

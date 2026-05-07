@@ -1,4 +1,5 @@
 import { SignalRoom, ServerSocket } from "../utils";
+import { VegaIncrementAnalyticMetric } from "./VegaRtcManager/types";
 
 export enum RtcEventNames {
     rtc_manager_created = "rtc_manager_created",
@@ -19,6 +20,12 @@ export interface RtcManagerOptions {
 export interface VegaRtcManagerOptions extends RtcManagerOptions {
     eventClaim: string;
 }
+export interface VegaConnectionOptions {
+    protocol?: string;
+    incrementAnalyticMetric?: VegaIncrementAnalyticMetric;
+}
+
+export type MediaPrefs = { wantsVideo: boolean };
 
 export interface RtcManager {
     acceptNewStream: ({ clientId, streamId }: { clientId: string; streamId: string }) => void;
@@ -35,6 +42,9 @@ export interface RtcManager {
     sendStatsCustomEvent(eventName: string, data: unknown): void;
     isInitializedWith({ selfId, roomName, isSfu }: { selfId: string; roomName: string; isSfu: boolean }): boolean;
     setEventClaim?(eventClaim: string): void;
+    setRemoteScreenshareVideoTrackIds(remoteScreenshareVideoTrackIds: string[]): void;
+    setRemoteClientMediaPrefs(clientId: string, mediaPrefs: MediaPrefs): void;
+    removeRemoteClientMediaPrefs(clientId: string): void;
     hasClient(clientId: string): boolean;
 }
 

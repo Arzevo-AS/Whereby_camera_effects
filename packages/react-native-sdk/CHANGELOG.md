@@ -1,5 +1,116 @@
 # @whereby.com/react-native-sdk
 
+## 0.8.93
+
+### Patch Changes
+
+- @whereby.com/core@1.10.10
+
+## 0.8.92
+
+### Patch Changes
+
+- @whereby.com/core@1.10.9
+
+## 0.8.91
+
+### Patch Changes
+
+- @whereby.com/core@1.10.8
+
+## 0.8.90
+
+### Patch Changes
+
+- @whereby.com/core@1.10.7
+
+## 0.8.89
+
+### Patch Changes
+
+- @whereby.com/core@1.10.6
+
+## 0.8.88
+
+### Patch Changes
+
+- @whereby.com/core@1.10.5
+
+## 0.8.87
+
+### Patch Changes
+
+- @whereby.com/core@1.10.4
+
+## 0.8.86
+
+### Patch Changes
+
+- Updated dependencies [8d70188]
+    - @whereby.com/core@1.10.3
+
+## 0.8.85
+
+### Patch Changes
+
+- @whereby.com/core@1.10.2
+
+## 0.8.84
+
+### Patch Changes
+
+- @whereby.com/core@1.10.1
+
+## 0.8.83
+
+### Patch Changes
+
+- Updated dependencies [33d60b7]
+    - @whereby.com/core@1.10.0
+
+## 0.8.82
+
+### Patch Changes
+
+- @whereby.com/core@1.9.17
+
+## 0.8.81
+
+### Patch Changes
+
+- @whereby.com/core@1.9.16
+
+## 0.8.80
+
+### Patch Changes
+
+- Updated dependencies [84c0766]
+    - @whereby.com/core@1.9.15
+
+## 0.8.79
+
+### Patch Changes
+
+- @whereby.com/core@1.9.14
+
+## 0.8.78
+
+### Patch Changes
+
+- @whereby.com/core@1.9.13
+
+## 0.8.77
+
+### Patch Changes
+
+- @whereby.com/core@1.9.12
+
+## 0.8.76
+
+### Patch Changes
+
+- @whereby.com/core@1.9.11
+
 ## 0.8.75
 
 ### Patch Changes

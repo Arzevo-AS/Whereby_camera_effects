@@ -1,5 +1,117 @@
 # @whereby.com/assistant-sdk
 
+## 1.2.69
+
+### Patch Changes
+
+- @whereby.com/core@1.10.10
+
+## 1.2.68
+
+### Patch Changes
+
+- @whereby.com/core@1.10.9
+
+## 1.2.67
+
+### Patch Changes
+
+- @whereby.com/core@1.10.8
+
+## 1.2.66
+
+### Patch Changes
+
+- @whereby.com/core@1.10.7
+
+## 1.2.65
+
+### Patch Changes
+
+- @whereby.com/core@1.10.6
+
+## 1.2.64
+
+### Patch Changes
+
+- @whereby.com/core@1.10.5
+
+## 1.2.63
+
+### Patch Changes
+
+- @whereby.com/core@1.10.4
+
+## 1.2.62
+
+### Patch Changes
+
+- Updated dependencies [8d70188]
+    - @whereby.com/core@1.10.3
+
+## 1.2.61
+
+### Patch Changes
+
+- @whereby.com/core@1.10.2
+
+## 1.2.60
+
+### Patch Changes
+
+- @whereby.com/core@1.10.1
+
+## 1.2.59
+
+### Patch Changes
+
+- Updated dependencies [33d60b7]
+    - @whereby.com/core@1.10.0
+
+## 1.2.58
+
+### Patch Changes
+
+- 90a482d: Check for existing Navigator before polyfilling
+    - @whereby.com/core@1.9.17
+
+## 1.2.57
+
+### Patch Changes
+
+- @whereby.com/core@1.9.16
+
+## 1.2.56
+
+### Patch Changes
+
+- Updated dependencies [84c0766]
+    - @whereby.com/core@1.9.15
+
+## 1.2.55
+
+### Patch Changes
+
+- @whereby.com/core@1.9.14
+
+## 1.2.54
+
+### Patch Changes
+
+- @whereby.com/core@1.9.13
+
+## 1.2.53
+
+### Patch Changes
+
+- @whereby.com/core@1.9.12
+
+## 1.2.52
+
+### Patch Changes
+
+- @whereby.com/core@1.9.11
+
 ## 1.2.51
 
 ### Patch Changes

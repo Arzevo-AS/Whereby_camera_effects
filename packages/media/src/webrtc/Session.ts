@@ -3,7 +3,7 @@ import { setVideoBandwidthUsingSetParameters } from "./rtcrtpsenderHelper";
 import adapterRaw from "webrtc-adapter";
 import Logger from "../utils/Logger";
 import rtcStats from "./rtcStatsService";
-import { SignalRTCSessionDescription } from "./types";
+import { MediaPrefs, SignalRTCSessionDescription } from "./types";
 import { P2PIncrementAnalyticMetric } from "./P2pRtcManager";
 import { trackAnnotations } from "../utils/annotations";
 
@@ -17,6 +17,7 @@ interface P2PSessionOptions {
     peerConnectionConfig: RTCConfiguration;
     deprioritizeH264Encoding: boolean;
     incrementAnalyticMetric: P2PIncrementAnalyticMetric;
+    mediaPrefs?: MediaPrefs;
 }
 
 export default class Session {
@@ -39,6 +40,7 @@ export default class Session {
     afterConnected: Promise<unknown>;
     registerConnected?: (value: unknown) => void;
     _deprioritizeH264Encoding: boolean;
+    _mediaPrefs?: MediaPrefs;
     clientId: any;
     peerConnectionConfig: RTCConfiguration;
     signalingState: any;
@@ -52,6 +54,7 @@ export default class Session {
         peerConnectionConfig,
         deprioritizeH264Encoding,
         incrementAnalyticMetric,
+        mediaPrefs,
     }: P2PSessionOptions) {
         this.relayCandidateSeen = false;
         this.serverReflexiveCandidateSeen = false;
@@ -61,6 +64,7 @@ export default class Session {
         this.ipv6HostCandidate6to4Seen = false;
         this.mdnsHostCandidateSeen = false;
         this.pendingReplaceTrackActions = [];
+        this._mediaPrefs = mediaPrefs;
 
         // Create PC.
         this.peerConnectionConfig = peerConnectionConfig;
@@ -105,26 +109,35 @@ export default class Session {
         stream.getAudioTracks().forEach((track) => {
             this.pc.addTrack(track, stream);
         });
+
+        if (this._mediaPrefs?.wantsVideo === false) {
+            return;
+        }
         stream.getVideoTracks().forEach((track) => {
             this.pc.addTrack(track, stream);
         });
     }
 
-    addTrack(track: MediaStreamTrack, stream?: MediaStream) {
-        if (!stream) {
-            stream = this.streams[0];
+    addTrack(track: MediaStreamTrack) {
+        if (track.kind === "video" && this._mediaPrefs?.wantsVideo === false) {
+            return;
         }
-        stream?.addTrack(track);
-        this.pc.addTrack(track, stream);
-    }
 
-    removeTrack(track: MediaStreamTrack) {
         const stream = this.streams[0];
-        stream.removeTrack(track);
-        const sender = this.pc.getSenders().find((sender) => sender.track === track);
-        if (sender) {
-            this.pc.removeTrack(sender);
-        }
+
+        this._incrementAnalyticMetric("P2PSessionAddTrack");
+        rtcStats.sendEvent("P2PSessionAddTrack", {
+            trackId: track.id,
+            kind: track.kind,
+            hasSessionStream: !!stream,
+            trackOfSameKindInStream: !!stream?.getTracks().filter((t) => t.kind === track.kind && t.id !== track.id)
+                .length,
+        });
+
+        // TODO: remove responsibility to add track from Session.
+        stream?.addTrack(track);
+
+        this.pc.addTrack(track, stream);
     }
 
     removeStream(stream: MediaStream) {
@@ -179,8 +192,6 @@ export default class Session {
             })
             .then((answer) => {
                 if (!answer.sdp) {
-                    this._incrementAnalyticMetric("P2PCreateAnswerNoSDP");
-                    rtcStats.sendEvent("P2PCreateAnswerNoSDP", {});
                     throw new Error("SDP undefined while creating answer");
                 } else {
                     answerToSignal = {
@@ -243,6 +254,7 @@ export default class Session {
         pc.oniceconnectionstatechange = null;
         pc.onicecandidate = null;
         pc.ontrack = null;
+        pc.onconnectionstatechange = null;
         try {
             // do not handle state change events when we close the connection explicitly
             pc.close();
@@ -260,6 +272,9 @@ export default class Session {
         logger.info("replacetrack() [oldTrackId: %s, newTrackId: %s]", oldTrack?.id, newTrack.id);
         if (newTrack.readyState === "ended") {
             throw new Error(`refusing to use ended track with id: ${newTrack.id}, kind: ${newTrack.kind}`);
+        }
+        if (newTrack.kind === "video" && this._mediaPrefs?.wantsVideo === false) {
+            return;
         }
 
         const pc = this.pc;
@@ -323,13 +338,6 @@ export default class Session {
         }
 
         this.bandwidth = bandwidth;
-
-        // @ts-ignore
-        if (this.pc.localDescription?.type === "") {
-            // Let's see if this ever happens.
-            this._incrementAnalyticMetric("P2PChangeBandwidthEmptySDPType");
-            return;
-        }
 
         if (!this.pc.localDescription) {
             return;

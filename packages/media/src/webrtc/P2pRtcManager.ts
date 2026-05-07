@@ -23,6 +23,7 @@ import {
     SignalIceCandidateMessage,
     SignalReadyToReceiveOfferMessage,
     SignalIceEndOfCandidatesMessage,
+    MediaPrefs,
 } from "./types";
 import { ClearableTimeout, ScreenshareStoppedEvent, ServerSocket, sortCodecs, trackAnnotations } from "../utils";
 import { maybeTurnOnly, external_stun_servers, turnServerOverride } from "../utils/iceServers";
@@ -62,6 +63,8 @@ type P2PAnalytics = {
     P2PNonErrorRejectionValueGUMError: number;
     numNewPc: number;
     numIceConnected: number;
+    numIceDisconnected: number;
+    numIceFailed: number;
     numIceRestart: number;
     numIceNoPublicIpGathered: number;
     numIceNoPublicIpGatheredIn3sec: number;
@@ -74,17 +77,14 @@ type P2PAnalytics = {
     numPcOnAnswerFailure: number;
     numPcOnOfferFailure: number;
     numPcSldFailure: number;
-    P2PChangeBandwidthEmptySDPType: number;
     P2PReplaceTrackNoStream: number;
     P2PReplaceTrackNewTrackNotInStream: number;
     P2POnTrackNoStream: number;
-    P2PSetCodecPreferenceError: number;
-    P2PCreateOfferNoSDP: number;
-    P2PCreateAnswerNoSDP: number;
     P2PMicNotWorking: number;
     P2PLocalNetworkFailed: number;
     P2PRelayedIceCandidate: number;
-    P2PStartScreenshareNoStream: number;
+    P2PSessionAddTrack: number;
+    P2PAddTrackToPeerConnections: number;
 };
 
 type P2PAnalyticMetric = keyof P2PAnalytics;
@@ -99,6 +99,7 @@ export default class P2pRtcManager implements RtcManager {
     _localCameraStream?: MediaStream;
     _localScreenshareStream?: MediaStream;
     _screenshareVideoTrackIds: string[];
+    _remoteClientMediaPrefs: Record<string, MediaPrefs> = {};
     _socketListenerDeregisterFunctions: any[];
     _localStreamDeregisterFunction: any;
     _emitter: any;
@@ -176,6 +177,8 @@ export default class P2pRtcManager implements RtcManager {
             P2PNonErrorRejectionValueGUMError: 0,
             numNewPc: 0,
             numIceConnected: 0,
+            numIceDisconnected: 0,
+            numIceFailed: 0,
             numIceRestart: 0,
             numIceNoPublicIpGathered: 0,
             numIceNoPublicIpGatheredIn3sec: 0,
@@ -188,17 +191,14 @@ export default class P2pRtcManager implements RtcManager {
             numPcSldFailure: 0,
             numPcOnAnswerFailure: 0,
             numPcOnOfferFailure: 0,
-            P2PChangeBandwidthEmptySDPType: 0,
             P2PReplaceTrackNoStream: 0,
             P2PReplaceTrackNewTrackNotInStream: 0,
             P2POnTrackNoStream: 0,
-            P2PSetCodecPreferenceError: 0,
-            P2PCreateOfferNoSDP: 0,
-            P2PCreateAnswerNoSDP: 0,
             P2PMicNotWorking: 0,
             P2PLocalNetworkFailed: 0,
             P2PRelayedIceCandidate: 0,
-            P2PStartScreenshareNoStream: 0,
+            P2PSessionAddTrack: 0,
+            P2PAddTrackToPeerConnections: 0,
         };
     }
 
@@ -484,13 +484,21 @@ export default class P2pRtcManager implements RtcManager {
         });
     }
 
-    setRemoteScreenshareVideoTrackIds(remoteScreenshareVideoTrackIds = []) {
+    setRemoteScreenshareVideoTrackIds(remoteScreenshareVideoTrackIds: string[] = []) {
         this._screenshareVideoTrackIds = [...remoteScreenshareVideoTrackIds];
 
         const localScreenShareTrack = this._localScreenshareStream?.getVideoTracks()?.[0];
         if (localScreenShareTrack) {
             this._screenshareVideoTrackIds.push(localScreenShareTrack.id);
         }
+    }
+
+    setRemoteClientMediaPrefs(clientId: string, mediaPrefs: MediaPrefs) {
+        this._remoteClientMediaPrefs[clientId] = mediaPrefs;
+    }
+
+    removeRemoteClientMediaPrefs(clientId: string) {
+        delete this._remoteClientMediaPrefs[clientId];
     }
 
     setRoomSessionId(roomSessionId: string) {
@@ -594,6 +602,7 @@ export default class P2pRtcManager implements RtcManager {
             bandwidth: initialBandwidth,
             deprioritizeH264Encoding,
             incrementAnalyticMetric: (metric: P2PAnalyticMetric) => this.analytics[metric]++,
+            mediaPrefs: this._remoteClientMediaPrefs[clientId],
         });
         this.peerConnections[clientId] = session;
 
@@ -769,6 +778,7 @@ export default class P2pRtcManager implements RtcManager {
                     break;
                 case "disconnected":
                     newStatus = CONNECTION_STATUS.TYPES.CONNECTION_DISCONNECTED;
+                    this.analytics.numIceDisconnected++;
                     setTimeout(() => {
                         if (pc.iceConnectionState === "disconnected") {
                             this._maybeRestartIce(clientId, session);
@@ -777,6 +787,7 @@ export default class P2pRtcManager implements RtcManager {
                     break;
                 case "failed":
                     newStatus = CONNECTION_STATUS.TYPES.CONNECTION_FAILED;
+                    this.analytics.numIceFailed++;
                     if (currentStatus !== newStatus) {
                         this._maybeRestartIce(clientId, session);
                     }
@@ -870,9 +881,6 @@ export default class P2pRtcManager implements RtcManager {
                     this._withForcedRenegotiation(session, () => {
                         if (this._localScreenshareStream) {
                             session.addStream(this._localScreenshareStream);
-                        } else {
-                            this.analytics.P2PStartScreenshareNoStream++;
-                            rtcStats.sendEvent("P2PStartScreenshareNoStream", {});
                         }
                     });
                 });
@@ -887,7 +895,7 @@ export default class P2pRtcManager implements RtcManager {
          * Explicitly add the video track so that stopOrResumeVideo() can
          * replace it when the video is re-enabled.
          */
-        if (this._localCameraStream?.getVideoTracks()?.length && this._stoppedVideoTrack) {
+        if (this._localCameraStream && !this._localCameraStream.getVideoTracks().length && this._stoppedVideoTrack) {
             pc.addTrack(this._stoppedVideoTrack, this._localCameraStream);
         }
 
@@ -900,6 +908,8 @@ export default class P2pRtcManager implements RtcManager {
             logger.warn("No RTCPeerConnection in RTCManager.disconnect()", clientId);
             return;
         }
+
+        this.removeRemoteClientMediaPrefs(session.clientId);
         session.close();
         delete this.peerConnections[clientId];
     }
@@ -916,9 +926,15 @@ export default class P2pRtcManager implements RtcManager {
         });
     }
 
-    _addTrackToPeerConnections(track: MediaStreamTrack, stream?: MediaStream) {
+    _addTrackToPeerConnections(track: MediaStreamTrack) {
+        this.analytics.P2PAddTrackToPeerConnections++;
+        rtcStats.sendEvent("P2PAddTrackToPeerConnections", {
+            trackId: track.id,
+            kind: track.kind,
+            readyState: track.readyState,
+        });
         this._forEachPeerConnection((session: Session) => {
-            this._withForcedRenegotiation(session, () => session.addTrack(track, stream));
+            this._withForcedRenegotiation(session, () => session.addTrack(track));
         });
     }
 
@@ -952,12 +968,6 @@ export default class P2pRtcManager implements RtcManager {
     _removeStreamFromPeerConnections(stream: MediaStream) {
         this._forEachPeerConnection((session: Session) => {
             this._withForcedRenegotiation(session, () => session.removeStream(stream));
-        });
-    }
-
-    _removeTrackFromPeerConnections(track: MediaStreamTrack) {
-        this._forEachPeerConnection((session: Session) => {
-            this._withForcedRenegotiation(session, () => session.removeTrack(track));
         });
     }
 
@@ -1127,8 +1137,6 @@ export default class P2pRtcManager implements RtcManager {
                 .createOffer(constraints || this.offerOptions)
                 .then((offer) => {
                     if (!offer.sdp) {
-                        this.analytics.P2PCreateOfferNoSDP++;
-                        rtcStats.sendEvent("P2PCreateOfferNoSDP", {});
                         throw new Error("SDP undefined while creating offer");
                     }
                     // Add https://webrtc.googlesource.com/src/+/refs/heads/main/docs/native-code/rtp-hdrext/abs-capture-time
@@ -1138,7 +1146,6 @@ export default class P2pRtcManager implements RtcManager {
                         offer.sdp = setCodecPreferenceSDP({
                             sdp: offer.sdp as string,
                             redOn,
-                            incrementAnalyticMetric: (metric: P2PAnalyticMetric) => this.analytics[metric]++,
                         });
                     }
 

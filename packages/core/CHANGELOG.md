@@ -1,5 +1,135 @@
 # @whereby.com/core
 
+## 1.10.10
+
+### Patch Changes
+
+- Updated dependencies [4c78d73]
+    - @whereby.com/media@8.2.8
+
+## 1.10.9
+
+### Patch Changes
+
+- Updated dependencies [44135ea]
+    - @whereby.com/media@8.2.7
+
+## 1.10.8
+
+### Patch Changes
+
+- Updated dependencies [06c721c]
+    - @whereby.com/media@8.2.6
+
+## 1.10.7
+
+### Patch Changes
+
+- Updated dependencies [b5be48d]
+    - @whereby.com/media@8.2.5
+
+## 1.10.6
+
+### Patch Changes
+
+- Updated dependencies [7ba83ae]
+    - @whereby.com/media@8.2.4
+
+## 1.10.5
+
+### Patch Changes
+
+- Updated dependencies [c1d8afa]
+    - @whereby.com/media@8.2.3
+
+## 1.10.4
+
+### Patch Changes
+
+- Updated dependencies [629c999]
+    - @whereby.com/media@8.2.2
+
+## 1.10.3
+
+### Patch Changes
+
+- 8d70188: Stop camera effect stream on leave room
+
+## 1.10.2
+
+### Patch Changes
+
+- Updated dependencies [2bfa3f0]
+    - @whereby.com/media@8.2.1
+
+## 1.10.1
+
+### Patch Changes
+
+- Updated dependencies [fe31b39]
+    - @whereby.com/media@8.2.0
+
+## 1.10.0
+
+### Minor Changes
+
+- 33d60b7: Add camera, mic, and connection error subscribers to RoomConnectionClient
+
+### Patch Changes
+
+- Updated dependencies [8a9e318]
+    - @whereby.com/media@8.1.0
+
+## 1.9.17
+
+### Patch Changes
+
+- Updated dependencies [8c7a3c9]
+    - @whereby.com/media@8.0.11
+
+## 1.9.16
+
+### Patch Changes
+
+- Updated dependencies [f7dacba]
+    - @whereby.com/media@8.0.10
+
+## 1.9.15
+
+### Patch Changes
+
+- 84c0766: Clarify stream unaccept in SFU breakout groups
+
+## 1.9.14
+
+### Patch Changes
+
+- Updated dependencies [b7d9de3]
+    - @whereby.com/media@8.0.9
+
+## 1.9.13
+
+### Patch Changes
+
+- Updated dependencies [db7e0df]
+    - @whereby.com/media@8.0.8
+
+## 1.9.12
+
+### Patch Changes
+
+- Updated dependencies [0dbcd5f]
+    - @whereby.com/media@8.0.7
+
+## 1.9.11
+
+### Patch Changes
+
+- Updated dependencies [9628440]
+- Updated dependencies [ffa3d5e]
+- Updated dependencies [30c9f23]
+    - @whereby.com/media@8.0.6
+
 ## 1.9.10
 
 ### Patch Changes
