@@ -3,6 +3,7 @@ jest.mock("webrtc-adapter", () => {
         browserDetails: { browser: "chrome" },
     };
 });
+import assert from "node:assert";
 
 import rtcStats from "../../src/webrtc/rtcStatsService";
 
@@ -569,6 +570,8 @@ describe("P2pRtcManager", () => {
                 it("sets the remote description", async () => {
                     // Instantiate the mocked pc
                     const { pc } = rtcManager._connect(clientId);
+                    // @ts-ignore
+                    pc.signalingState = "have-local-offer";
 
                     // Run
                     const validSdp = (getValidSdpString() + "\n").split("\n").join("\r\n");
@@ -577,6 +580,103 @@ describe("P2pRtcManager", () => {
 
                     // Assert
                     expect(pc.setRemoteDescription).toHaveBeenCalled();
+                });
+
+                it("ignores a stale answer when signalingState is stable", async () => {
+                    // Simulates an in-flight ICE-restart answer arriving after the PC
+                    // has been recreated (e.g. after a signal-server reconnect).
+                    const session = rtcManager._connect(clientId);
+                    // @ts-ignore — PC stub stays in "stable" by default
+                    session.pc.signalingState = "stable";
+
+                    const validSdp = (getValidSdpString() + "\n").split("\n").join("\r\n");
+                    const answer = { type: "answer", sdp: validSdp };
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.SDP_ANSWER, { clientId, message: answer });
+
+                    expect(session.pc.setRemoteDescription).not.toHaveBeenCalled();
+                });
+            });
+
+            describe("ICE_CANDIDATE before the answer", () => {
+                it("does not add a candidate to the PC before the initial answer arrives", async () => {
+                    const session = rtcManager._connect(clientId);
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    const candidate = helpers.getValidCandidatePackage();
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.ICE_CANDIDATE, {
+                        clientId,
+                        message: candidate,
+                    });
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    expect(session.pc.addIceCandidate).not.toHaveBeenCalled();
+                });
+
+                it("flushes the buffered candidate to the PC once the initial answer's SRD resolves", async () => {
+                    const session = rtcManager._connect(clientId);
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    const candidate = helpers.getValidCandidatePackage();
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.ICE_CANDIDATE, {
+                        clientId,
+                        message: candidate,
+                    });
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    // @ts-ignore
+                    session.pc.signalingState = "have-local-offer";
+                    const validSdp = (getValidSdpString() + "\n").split("\n").join("\r\n");
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.SDP_ANSWER, {
+                        clientId,
+                        message: { type: "answer", sdp: validSdp },
+                    });
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    expect(session.pc.addIceCandidate).toHaveBeenCalledWith(candidate);
+                });
+
+                it("does not add a candidate to the PC while a renegotiation offer is in flight", async () => {
+                    const session = rtcManager._connect(clientId);
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    // settle the initial answer so srdComplete becomes a resolved promise
+                    // @ts-ignore
+                    session.pc.signalingState = "have-local-offer";
+                    const validSdp = (getValidSdpString() + "\n").split("\n").join("\r\n");
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.SDP_ANSWER, {
+                        clientId,
+                        message: { type: "answer", sdp: validSdp },
+                    });
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+                    // @ts-ignore
+                    session.pc.signalingState = "stable";
+                    session.isOperationPending = false;
+                    (session.pc.addIceCandidate as jest.Mock).mockClear();
+
+                    // mark the session as connected, then trigger a renegotiation
+                    // @ts-ignore
+                    session.pc.iceConnectionState = "connected";
+                    session.pc.oniceconnectionstatechange?.({} as Event);
+                    session.pc.onnegotiationneeded?.({} as Event);
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    const candidate = helpers.getValidCandidatePackage();
+                    serverSocketStub.emitFromServer(RELAY_MESSAGES.ICE_CANDIDATE, {
+                        clientId,
+                        message: candidate,
+                    });
+                    jest.advanceTimersByTimeAsync(1);
+                    await new Promise(process.nextTick);
+
+                    expect(session.pc.addIceCandidate).not.toHaveBeenCalled();
                 });
             });
 
@@ -944,13 +1044,12 @@ describe("P2pRtcManager", () => {
         describe("icerestart", () => {
             it("adds analytics for ICE restarts", async () => {
                 const manager = createRtcManager();
-                const { pc } = await manager._connect(clientId);
+                const session = manager._connect(clientId);
 
                 // @ts-ignore
-                pc.iceConnectionState = "disconnected";
+                session.pc.iceConnectionState = "disconnected";
                 // @ts-ignore
-                pc.localDescription = { type: "offer" };
-                const session: any = { pc };
+                session.pc.localDescription = { type: "offer" };
                 session.canModifyPeerConnection = jest.fn().mockReturnValue(true);
                 manager._maybeRestartIce(clientId, session);
                 expect(manager.analytics.numIceRestart).toBe(1);
@@ -1098,8 +1197,8 @@ describe("P2pRtcManager", () => {
     });
 
     describe("stopOrResumeVideo", () => {
-        let localStream: any;
-        let rtcManager: any;
+        let localStream: MediaStream;
+        let rtcManager: P2pRtcManager;
 
         beforeEach(() => {
             localStream = helpers.createMockedMediaStream();
@@ -1176,7 +1275,8 @@ describe("P2pRtcManager", () => {
             it("should add video track to local stream", async () => {
                 const expectedTrack = gumStream.getVideoTracks()[0];
 
-                await rtcManager.stopOrResumeVideo(localStream, true);
+                rtcManager.stopOrResumeVideo(localStream, true);
+                await Promise.resolve();
 
                 expect(localStream.addTrack).toHaveBeenCalledWith(expectedTrack);
             });
@@ -1184,7 +1284,8 @@ describe("P2pRtcManager", () => {
             it("should emit event", async () => {
                 const expectedTrack = gumStream.getVideoTracks()[0];
 
-                await rtcManager.stopOrResumeVideo(localStream, true);
+                rtcManager.stopOrResumeVideo(localStream, true);
+                await Promise.resolve();
 
                 expect(emitterStub.emit).toHaveBeenCalledWith(CONNECTION_STATUS.EVENTS.LOCAL_STREAM_TRACK_ADDED, {
                     streamId: localStream.id,
@@ -1194,23 +1295,177 @@ describe("P2pRtcManager", () => {
             });
 
             it("should add track to peer connection(s)", async () => {
+                const session = rtcManager.acceptNewStream({
+                    streamId: helpers.randomString(),
+                    clientId: helpers.randomString(),
+                });
                 const expectedTrack = gumStream.getVideoTracks()[0];
-                jest.spyOn(rtcManager, "_addTrackToPeerConnections");
+                jest.spyOn(session, "addTrack");
 
-                await rtcManager.stopOrResumeVideo(localStream, true);
+                rtcManager.stopOrResumeVideo(localStream, true);
+                await Promise.resolve();
 
-                expect(rtcManager._addTrackToPeerConnections).toHaveBeenCalledWith(expectedTrack);
+                expect(session.addTrack).toHaveBeenCalledWith(expectedTrack);
             });
 
-            it("should replace track in peer connection(s) when stopped track exists", async () => {
-                const expectedTrack = gumStream.getVideoTracks()[0];
-                const stoppedTrack = helpers.createMockedMediaStreamTrack({ kind: "video" });
-                rtcManager._stoppedVideoTrack = stoppedTrack;
-                jest.spyOn(rtcManager, "_replaceTrackToPeerConnections");
+            describe("when a stopped track exists", () => {
+                let stoppedTrack: MediaStreamTrack;
+                beforeEach(async () => {
+                    stoppedTrack = helpers.createMockedMediaStreamTrack({ kind: "video" });
+                    stoppedTrack.enabled = false;
+                    localStream.addTrack(stoppedTrack);
+                    rtcManager.stopOrResumeVideo(localStream, false);
+                    await jest.advanceTimersByTimeAsync(5000); // stopCameraTimeout
+                });
 
-                await rtcManager.stopOrResumeVideo(localStream, true);
+                describe("for connected peers", () => {
+                    it("should replace track in peer connection(s) when stopped track exists", async () => {
+                        const session = rtcManager.acceptNewStream({
+                            streamId: helpers.randomString(),
+                            clientId: helpers.randomString(),
+                        });
+                        jest.spyOn(session, "replaceTrack");
+                        jest.spyOn(session, "hasConnectedPeerConnection");
+                        (session.hasConnectedPeerConnection as jest.Mock).mockReturnValue(true);
 
-                expect(rtcManager._replaceTrackToPeerConnections).toHaveBeenCalledWith(stoppedTrack, expectedTrack);
+                        const expectedTrack = gumStream.getVideoTracks()[0];
+
+                        rtcManager.stopOrResumeVideo(localStream, true);
+                        await Promise.resolve();
+
+                        expect(session.replaceTrack).toHaveBeenCalledWith(stoppedTrack, expectedTrack);
+                    });
+                });
+
+                describe("for disconnected peers", () => {
+                    it("should add a pending action replacing the track", async () => {
+                        const session = rtcManager.acceptNewStream({
+                            streamId: helpers.randomString(),
+                            clientId: helpers.randomString(),
+                        });
+                        jest.spyOn(session, "replaceTrack");
+                        jest.spyOn(session, "hasConnectedPeerConnection");
+                        (session.hasConnectedPeerConnection as jest.Mock).mockReturnValue(false);
+
+                        const expectedTrack = gumStream.getVideoTracks()[0];
+
+                        rtcManager.stopOrResumeVideo(localStream, true);
+                        await Promise.resolve();
+
+                        expect(session.replaceTrack).not.toHaveBeenCalled();
+
+                        const pendingAction = session.pendingReplaceTrackActions.pop();
+                        expect(session.replaceTrack).not.toHaveBeenCalled();
+                        assert(pendingAction, "No pending action found");
+
+                        await pendingAction();
+                        expect(session.replaceTrack).toHaveBeenCalledWith(stoppedTrack, expectedTrack);
+                    });
+
+                    describe("when the connection is closed", () => {
+                        it("should take no action", async () => {
+                            const session = rtcManager.acceptNewStream({
+                                streamId: helpers.randomString(),
+                                clientId: helpers.randomString(),
+                            });
+                            jest.spyOn(session, "replaceTrack");
+                            jest.spyOn(session, "hasConnectedPeerConnection");
+                            (session.hasConnectedPeerConnection as jest.Mock).mockReturnValue(false);
+                            session.pc = {
+                                connectionState: "closed",
+                                addTrack: jest.fn(),
+                            } as unknown as RTCPeerConnection;
+
+                            rtcManager.stopOrResumeVideo(localStream, true);
+                            await Promise.resolve();
+
+                            expect(session.replaceTrack).not.toHaveBeenCalled();
+                            expect(session.pendingReplaceTrackActions.length).toEqual(0);
+                        });
+                    });
+                });
+            });
+
+            describe("when video is disabled shortly after enabling", () => {
+                it("should not add video track to local stream", async () => {
+                    const expectedTrack = gumStream.getVideoTracks()[0];
+
+                    rtcManager.stopOrResumeVideo(localStream, true);
+                    rtcManager.stopOrResumeVideo(localStream, false);
+                    await Promise.resolve();
+
+                    expect(localStream.addTrack).not.toHaveBeenCalledWith(expectedTrack);
+                });
+
+                it("should not emit event", async () => {
+                    rtcManager.stopOrResumeVideo(localStream, true);
+                    rtcManager.stopOrResumeVideo(localStream, false);
+                    await Promise.resolve();
+
+                    expect(emitterStub.emit).not.toHaveBeenCalled();
+                });
+
+                it("should not add track to peer connection(s)", async () => {
+                    const session = rtcManager.acceptNewStream({
+                        streamId: helpers.randomString(),
+                        clientId: helpers.randomString(),
+                    });
+                    jest.spyOn(session, "addTrack");
+
+                    rtcManager.stopOrResumeVideo(localStream, true);
+                    rtcManager.stopOrResumeVideo(localStream, false);
+                    await Promise.resolve();
+
+                    expect(session.addTrack).not.toHaveBeenCalled();
+                });
+
+                describe("when a stopped track exists", () => {
+                    let stoppedTrack: MediaStreamTrack;
+                    beforeEach(async () => {
+                        stoppedTrack = helpers.createMockedMediaStreamTrack({ kind: "video" });
+                        stoppedTrack.enabled = false;
+                        localStream.addTrack(stoppedTrack);
+                        rtcManager.stopOrResumeVideo(localStream, false);
+                        await jest.advanceTimersByTimeAsync(5000); // stopCameraTimeout
+                    });
+
+                    describe("for connected peers", () => {
+                        it("should not replace track in peer connection(s)", async () => {
+                            const session = rtcManager.acceptNewStream({
+                                streamId: helpers.randomString(),
+                                clientId: helpers.randomString(),
+                            });
+                            jest.spyOn(session, "replaceTrack");
+                            jest.spyOn(session, "hasConnectedPeerConnection");
+                            (session.hasConnectedPeerConnection as jest.Mock).mockReturnValue(true);
+
+                            rtcManager.stopOrResumeVideo(localStream, true);
+                            rtcManager.stopOrResumeVideo(localStream, false);
+                            await Promise.resolve();
+
+                            expect(session.replaceTrack).not.toHaveBeenCalled();
+                        });
+                    });
+
+                    describe("for disconnected peers", () => {
+                        it("should not add a pending action replacing the track", async () => {
+                            const session = rtcManager.acceptNewStream({
+                                streamId: helpers.randomString(),
+                                clientId: helpers.randomString(),
+                            });
+                            jest.spyOn(session, "replaceTrack");
+                            jest.spyOn(session, "hasConnectedPeerConnection");
+                            (session.hasConnectedPeerConnection as jest.Mock).mockReturnValue(false);
+
+                            rtcManager.stopOrResumeVideo(localStream, true);
+                            rtcManager.stopOrResumeVideo(localStream, false);
+                            await Promise.resolve();
+
+                            expect(session.replaceTrack).not.toHaveBeenCalled();
+                            expect(session.pendingReplaceTrackActions.length).toEqual(0);
+                        });
+                    });
+                });
             });
         });
 

@@ -85,17 +85,54 @@ export interface BreakoutGroupJoinedEvent {
     group: string;
 }
 
+export interface ChatFileShare {
+    downloadUrl: string;
+    name: string;
+    size: number;
+    type: string;
+    key: string;
+    id?: string;
+}
+
 export interface ChatMessage {
     id: string;
     messageType: "text";
     roomName: string;
     senderId: string;
-    sig: string;
+    sig?: string | null;
     text: string;
     timestamp: string;
     userId: string;
     breakoutGroup?: string;
     broadcast?: boolean;
+    parentId?: string;
+    file?: ChatFileShare;
+}
+
+export interface ChatMessageRemoved {
+    id: string;
+    requestedByClientId: string;
+}
+
+export const FILE_SHARE_ERROR_CODES = [
+    "file_sharing_not_available",
+    "file_sharing_not_enabled",
+    "not_in_a_room_session",
+] as const;
+
+export type FileShareErrorCode = (typeof FILE_SHARE_ERROR_CODES)[number];
+
+export interface ChatMessageError {
+    error: FileShareErrorCode;
+}
+
+export function isFileShareError(payload: ChatMessage | ChatMessageError): payload is ChatMessageError {
+    return "error" in payload && (FILE_SHARE_ERROR_CODES as readonly string[]).includes(payload.error);
+}
+
+export interface FileUploadUrl {
+    downloadUrl: string;
+    uploadUrl: { url: string; fields: Record<string, string> };
 }
 
 export interface CloudRecordingStartedEvent {
@@ -124,8 +161,19 @@ export interface KnockerLeftEvent {
     clientId: string;
 }
 
+export interface KnockResponseSender {
+    displayName?: string | null;
+    avatarUrl?: string | null;
+}
+
+export interface KnockResponse {
+    message?: string;
+    sender?: KnockResponseSender;
+}
+
 export interface KnockAcceptedEvent {
     clientId: string;
+    knockResponse?: KnockResponse;
     metadata: {
         roomKey: string;
         roomName: string;
@@ -133,8 +181,15 @@ export interface KnockAcceptedEvent {
     resolution: "accepted";
 }
 
+export interface KnockOnHoldEvent {
+    clientId: string;
+    knockResponse?: KnockResponse;
+    resolution: "on_hold";
+}
+
 export interface KnockRejectedEvent {
     clientId: string;
+    knockResponse?: KnockResponse;
     resolution: "rejected";
 }
 
@@ -276,6 +331,7 @@ export type SignalRoom = {
     mode: RoomMode;
     name: string;
     organizationId: string;
+    liveTranscriptionId?: string;
     spotlights: Spotlight[];
     session: {
         createdAt: string;
@@ -374,6 +430,20 @@ export interface SpotlightRemovedEvent {
     requestedByClientId: string;
 }
 
+export interface LiveCaptionsStartedEvent {
+    error?: string;
+}
+
+export interface LiveCaptionsStoppedEvent {
+    error?: string;
+}
+
+export interface LiveCaptionEvent {
+    senderId: string;
+    resultId: string;
+    text: string;
+}
+
 export interface LiveTranscriptionStartedEvent {
     transcriptionId?: string;
     error?: string;
@@ -396,12 +466,13 @@ export interface SignalEvents {
     client_unable_to_join: ClientUnableToJoinEvent;
     cloud_recording_started: CloudRecordingStartedEvent;
     cloud_recording_stopped: void;
-    chat_message: ChatMessage;
+    chat_message: ChatMessage | ChatMessageError;
+    chat_message_removed: ChatMessageRemoved;
     connect: void;
     connect_error: void;
     device_identified: void;
     disconnect: void;
-    knock_handled: KnockAcceptedEvent | KnockRejectedEvent;
+    knock_handled: KnockAcceptedEvent | KnockOnHoldEvent | KnockRejectedEvent;
     knocker_left: KnockerLeftEvent;
     new_client: NewClientEvent;
     room_joined: RoomJoinedEvent;
@@ -418,8 +489,17 @@ export interface SignalEvents {
     video_enable_requested: VideoEnableRequestedEvent;
     live_transcription_started: LiveTranscriptionStartedEvent;
     live_transcription_stopped: LiveTranscriptionStoppedEvent;
-    live_captions_started: void;
-    live_captions_stopped: void;
+    live_captions_started: LiveCaptionsStartedEvent;
+    live_captions_stopped: LiveCaptionsStoppedEvent;
+    live_caption: LiveCaptionEvent;
+}
+
+export interface ChatMessageRequest {
+    text: string;
+    parentId?: string;
+    breakoutGroup?: string;
+    broadcast?: boolean;
+    file?: ChatFileShare;
 }
 
 export interface IdentifyDeviceRequest {
@@ -464,6 +544,24 @@ export interface AddSpotlightRequest {
     streamId: string;
 }
 
+export interface BreakoutSessionUpdateRequest {
+    active?: boolean;
+    assignments?: {
+        [deviceId: string]: string;
+    } | null;
+    groups?: {
+        [groupId: string]: string;
+    } | null;
+    enforceAssignment?: boolean;
+    autoMoveToGroup?: boolean;
+    autoMoveToMain?: boolean;
+    moveToGroupGracePeriod?: number | null;
+    moveToMainGracePeriod?: number | null;
+    breakoutTimerSetting?: boolean;
+    breakoutTimerDuration?: number;
+    breakoutNotification?: string | null;
+}
+
 export interface RemoveSpotlightRequest {
     clientId: string;
     streamId: string;
@@ -471,16 +569,20 @@ export interface RemoveSpotlightRequest {
 
 export interface SignalRequests {
     add_spotlight: AddSpotlightRequest;
-    chat_message: { text: string };
+    chat_message: ChatMessageRequest;
     enable_audio: { enabled: boolean };
     enable_video: { enabled: boolean };
-    handle_knock: { action: "accept" | "reject"; clientId: string; response: unknown };
+    handle_knock: { action: "accept" | "hold" | "reject"; clientId: string; knockResponse: KnockResponse };
     identify_device: IdentifyDeviceRequest;
     join_breakout_group: { group: string };
+    update_breakout_session: BreakoutSessionUpdateRequest;
     join_room: JoinRoomRequest;
     knock_room: KnockRoomRequest;
     leave_room: void;
+    live_captions_enabled: void;
+    live_captions_disabled: void;
     remove_spotlight: RemoveSpotlightRequest;
+    request_file_upload_url: { files: { name: string; size: number; type: string }[] };
     request_audio_enable: AudioEnableRequest;
     request_video_enable: VideoEnableRequest;
     send_client_metadata: { type: string; payload: { displayName?: string; stickyReaction?: unknown } };

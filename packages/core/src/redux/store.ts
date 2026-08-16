@@ -9,6 +9,8 @@ import { chatSlice } from "./slices/chat";
 import { cloudRecordingSlice } from "./slices/cloudRecording";
 import { connectionMonitorSlice } from "./slices/connectionMonitor";
 import { deviceCredentialsSlice } from "./slices/deviceCredentials";
+import { fileShareSlice } from "./slices/fileShare";
+import { liveCaptionsSlice } from "./slices/liveCaptions";
 import { liveTranscriptionSlice } from "./slices/liveTranscription";
 import { localMediaSlice } from "./slices/localMedia";
 import { localParticipantSlice } from "./slices/localParticipant";
@@ -25,11 +27,13 @@ import { spotlightsSlice } from "./slices/spotlights";
 import { streamingSlice } from "./slices/streaming";
 import { waitingParticipantsSlice } from "./slices/waitingParticipants";
 import { cameraEffectsSlice } from "./slices/cameraEffects";
+import { audioDenoiserSlice } from "./slices/audioDenoiser";
 
 const IS_DEV = process.env.REACT_APP_IS_DEV === "true";
 
 const appReducer = combineReducers({
     app: appSlice.reducer,
+    audioDenoiser: audioDenoiserSlice.reducer,
     authorization: authorizationSlice.reducer,
     breakout: breakoutSlice.reducer,
     cameraEffects: cameraEffectsSlice.reducer,
@@ -37,6 +41,8 @@ const appReducer = combineReducers({
     cloudRecording: cloudRecordingSlice.reducer,
     connectionMonitor: connectionMonitorSlice.reducer,
     deviceCredentials: deviceCredentialsSlice.reducer,
+    fileShare: fileShareSlice.reducer,
+    liveCaptions: liveCaptionsSlice.reducer,
     liveTranscription: liveTranscriptionSlice.reducer,
     localMedia: localMediaSlice.reducer,
     localParticipant: localParticipantSlice.reducer,
@@ -69,6 +75,10 @@ export const rootReducer: AppReducer = (state, action) => {
             cameraEffects: {
                 ...cameraEffectsSlice.getInitialState(),
                 ...state?.cameraEffects,
+            },
+            audioDenoiser: {
+                ...audioDenoiserSlice.getInitialState(),
+                ...state?.audioDenoiser,
             },
         };
 

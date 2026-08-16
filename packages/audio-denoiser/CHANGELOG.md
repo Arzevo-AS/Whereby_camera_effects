@@ -1,0 +1,77 @@
+# @whereby.com/audio-denoiser
+
+## 1.0.10
+
+### Patch Changes
+
+- Updated dependencies [ac8571e]
+    - @whereby.com/media@9.7.0
+
+## 1.0.9
+
+### Patch Changes
+
+- Updated dependencies [34f86b3]
+    - @whereby.com/media@9.6.1
+
+## 1.0.8
+
+### Patch Changes
+
+- Updated dependencies [489953e]
+    - @whereby.com/media@9.6.0
+
+## 1.0.7
+
+### Patch Changes
+
+- Updated dependencies [c1191e0]
+    - @whereby.com/media@9.5.0
+
+## 1.0.6
+
+### Patch Changes
+
+- Updated dependencies [d0c633b]
+    - @whereby.com/media@9.4.0
+
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [89cfd0c]
+    - @whereby.com/media@9.3.1
+
+## 1.0.4
+
+### Patch Changes
+
+- Updated dependencies [aab898a]
+    - @whereby.com/media@9.3.0
+
+## 1.0.3
+
+### Patch Changes
+
+- Updated dependencies [32e6693]
+    - @whereby.com/media@9.2.7
+
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [41b7d6e]
+    - @whereby.com/media@9.2.6
+
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [2da8deb]
+    - @whereby.com/media@9.2.5
+
+## 1.0.0
+
+### Major Changes
+
+- add4500: Release audio denoiser

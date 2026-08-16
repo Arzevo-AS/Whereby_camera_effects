@@ -1,5 +1,17 @@
 # @whereby.com/camera-effects
 
+## 1.1.3
+
+### Patch Changes
+
+- ddaa203: Guard `Processor.updateParams` against running after the processor was terminated, so a stale or in-flight update no longer dereferences a null engine.
+
+## 1.1.2
+
+### Patch Changes
+
+- 36bf846: Dedupe the in-flight tflite wasm and segmentation model loads so concurrent `createEffectStream` calls share a single fetch instead of each starting their own.
+
 ## 1.1.1
 
 ### Patch Changes

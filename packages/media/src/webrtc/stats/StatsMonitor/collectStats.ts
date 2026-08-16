@@ -8,7 +8,7 @@ import {
 } from "./metrics";
 import { getPeerConnectionsWithStatsReports } from "./peerConnection";
 import { getPeerConnectionIndex, removePeerConnection } from "./peerConnectionTracker";
-import { StatsClient, ViewStats } from "../types";
+import { RenderedDimensionsReport, StatsClient, ViewStats } from "../types";
 import rtcStats from "../../rtcStatsService";
 
 const getOrCreateSsrcMetricsContainer = (
@@ -44,14 +44,20 @@ const getOrCreateSsrcMetricsContainer = (
     return ssrcStats;
 };
 
-const removeNonUpdatedStats = (statsByView: Record<string, ViewStats>, time: number) => {
+const removeNonUpdatedStats = (
+    statsByView: Record<string, ViewStats>,
+    time: number,
+    renderedDimensionsByTrack: Record<string, RenderedDimensionsReport>,
+) => {
     Object.entries(statsByView).forEach(([viewId, viewStats]) => {
         if (viewStats.updated !== undefined && viewStats.updated < time) {
+            Object.keys(viewStats.tracks).forEach((trackId) => delete renderedDimensionsByTrack[trackId]);
             delete statsByView[viewId];
         } else {
             Object.entries(viewStats.tracks).forEach(([trackId, trackStats]) => {
                 if (trackStats.updated < time) {
                     delete viewStats.tracks[trackId];
+                    delete renderedDimensionsByTrack[trackId];
                 } else {
                     Object.entries(trackStats.ssrcs).forEach(([ssrc, ssrcStats]) => {
                         if (ssrcStats.updated < time) {
@@ -101,7 +107,9 @@ export async function collectStats(
         const timeSinceLastUpdate = Date.now() - state.lastUpdateTime;
         if (timeSinceLastUpdate < 400) {
             if (immediate) return state.statsByView;
-            state.subscriptions.forEach((subscription) => subscription.onUpdatedStats?.(state.statsByView, clients));
+            state.subscriptions.forEach((subscription) =>
+                subscription.onUpdatedStats?.(state.statsByView, clients, state.renderedDimensionsByTrack),
+            );
             state.nextTimeout = setTimeout(collectStatsBound, interval);
             return;
         }
@@ -110,7 +118,7 @@ export async function collectStats(
         state.lastUpdateTime = Date.now();
 
         // loop through current peer connections
-        (await getPeerConnectionsWithStatsReports()).forEach(([pc, report, pcData]) => {
+        (await getPeerConnectionsWithStatsReports()).forEach(({ pc, report, pcData }) => {
             // each new peer connection will get +1, to be able to see/count/correlate data
             const pcIndex = getPeerConnectionIndex(pc);
 
@@ -125,11 +133,11 @@ export async function collectStats(
             }
 
             // keep track of visited ssrcs for cleanup later
-            pcData.previousSSRCs = pcData.currentSSRCs || {};
+            pcData.previousSSRCs = pcData.currentSSRCs;
             pcData.currentSSRCs = {};
 
             // loop though each stats dictionary in report
-            report.forEach((currentRtcStats: any) => {
+            report.forEach((currentRtcStats) => {
                 if (currentRtcStats.type === "candidate-pair" && /inprogress|succeeded/.test(currentRtcStats.state)) {
                     const prevRtcStats = pcData._oldReport?.get(currentRtcStats.id);
                     const timeDiff = prevRtcStats ? currentRtcStats.timestamp - prevRtcStats.timestamp : interval;
@@ -180,7 +188,7 @@ export async function collectStats(
                     pcData.currentSSRCs[ssrc] = client.id;
                     // we need to stats reset when selected candidate pair changes
                     // todo: metrics should += diff, not use count directly
-                    if (prevRtcStats) {
+                    if (prevRtcStats && pcData._oldReport) {
                         const newTransport = report.get(currentRtcStats.transportId);
                         const oldTransport = pcData._oldReport.get(prevRtcStats.transportId);
                         if (
@@ -226,14 +234,14 @@ export async function collectStats(
             Object.keys(pcData.previousSSRCs)
                 .filter((ssrc) => !pcData.currentSSRCs[ssrc])
                 .forEach((ssrc) => {
-                    const clientId = pcData.previousSSRCs[ssrc];
+                    const clientId = pcData.previousSSRCs![ssrc];
                     if (clientId) {
                         // remove
                         const clientView = state.statsByView[clientId];
                         if (clientView) {
                             Object.values(clientView.tracks).forEach((trackStats) => {
-                                if (trackStats.ssrcs[ssrc as unknown as number]) {
-                                    delete trackStats.ssrcs[ssrc as unknown as number];
+                                if (trackStats.ssrcs[ssrc]) {
+                                    delete trackStats.ssrcs[ssrc];
                                 }
                             });
                         }
@@ -241,7 +249,7 @@ export async function collectStats(
                 });
         });
 
-        removeNonUpdatedStats(state.statsByView, state.lastUpdateTime);
+        removeNonUpdatedStats(state.statsByView, state.lastUpdateTime, state.renderedDimensionsByTrack);
 
         // mark candidatepairs as active/inactive
         Object.entries(defaultViewStats?.candidatePairs || {}).forEach(([cpKey, cp]) => {
@@ -262,7 +270,9 @@ export async function collectStats(
         if (immediate) {
             return state.statsByView;
         } else {
-            state.subscriptions.forEach((subscription) => subscription.onUpdatedStats?.(state.statsByView, clients));
+            state.subscriptions.forEach((subscription) =>
+                subscription.onUpdatedStats?.(state.statsByView, clients, state.renderedDimensionsByTrack),
+            );
         }
     } catch (e: any) {
         logger.warn(e);

@@ -1,5 +1,205 @@
 # @whereby.com/react-native-sdk
 
+## 0.8.124
+
+### Patch Changes
+
+- @whereby.com/core@1.18.2
+
+## 0.8.123
+
+### Patch Changes
+
+- @whereby.com/core@1.18.1
+
+## 0.8.122
+
+### Patch Changes
+
+- Updated dependencies [6aa45eb]
+- Updated dependencies [489953e]
+    - @whereby.com/core@1.18.0
+
+## 0.8.121
+
+### Patch Changes
+
+- Updated dependencies [c1191e0]
+    - @whereby.com/core@1.17.0
+
+## 0.8.120
+
+### Patch Changes
+
+- Updated dependencies [e54cab7]
+    - @whereby.com/core@1.16.3
+
+## 0.8.119
+
+### Patch Changes
+
+- @whereby.com/core@1.16.2
+
+## 0.8.118
+
+### Patch Changes
+
+- Updated dependencies [89cfd0c]
+    - @whereby.com/core@1.16.1
+
+## 0.8.117
+
+### Patch Changes
+
+- Updated dependencies [6be9bc2]
+    - @whereby.com/core@1.16.0
+
+## 0.8.116
+
+### Patch Changes
+
+- @whereby.com/core@1.15.3
+
+## 0.8.115
+
+### Patch Changes
+
+- Updated dependencies [c7a6770]
+    - @whereby.com/core@1.15.2
+
+## 0.8.114
+
+### Patch Changes
+
+- @whereby.com/core@1.15.1
+
+## 0.8.113
+
+### Patch Changes
+
+- Updated dependencies [41b7d6e]
+    - @whereby.com/core@1.15.0
+
+## 0.8.112
+
+### Patch Changes
+
+- @whereby.com/core@1.14.2
+
+## 0.8.111
+
+### Patch Changes
+
+- @whereby.com/core@1.14.1
+
+## 0.8.110
+
+### Patch Changes
+
+- Updated dependencies [2da8deb]
+    - @whereby.com/core@1.14.0
+
+## 0.8.109
+
+### Patch Changes
+
+- Updated dependencies [6afb2ae]
+- Updated dependencies [add4500]
+    - @whereby.com/core@1.13.0
+
+## 0.8.108
+
+### Patch Changes
+
+- @whereby.com/core@1.12.1
+
+## 0.8.107
+
+### Patch Changes
+
+- Updated dependencies [e38a74f]
+    - @whereby.com/core@1.12.0
+
+## 0.8.106
+
+### Patch Changes
+
+- @whereby.com/core@1.11.3
+
+## 0.8.105
+
+### Patch Changes
+
+- @whereby.com/core@1.11.2
+
+## 0.8.104
+
+### Patch Changes
+
+- @whereby.com/core@1.11.1
+
+## 0.8.103
+
+### Patch Changes
+
+- Updated dependencies [563b5c5]
+- Updated dependencies [c6ca91d]
+    - @whereby.com/core@1.11.0
+
+## 0.8.102
+
+### Patch Changes
+
+- @whereby.com/core@1.10.19
+
+## 0.8.101
+
+### Patch Changes
+
+- @whereby.com/core@1.10.18
+
+## 0.8.100
+
+### Patch Changes
+
+- @whereby.com/core@1.10.17
+
+## 0.8.99
+
+### Patch Changes
+
+- @whereby.com/core@1.10.16
+
+## 0.8.98
+
+### Patch Changes
+
+- @whereby.com/core@1.10.15
+
+## 0.8.97
+
+### Patch Changes
+
+- @whereby.com/core@1.10.14
+
+## 0.8.96
+
+### Patch Changes
+
+- @whereby.com/core@1.10.13
+
+## 0.8.95
+
+### Patch Changes
+
+- @whereby.com/core@1.10.12
+
+## 0.8.94
+
+### Patch Changes
+
+- @whereby.com/core@1.10.11
+
 ## 0.8.93
 
 ### Patch Changes

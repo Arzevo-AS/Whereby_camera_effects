@@ -1,5 +1,11 @@
 import React, { useCallback, useState, useEffect } from "react";
-import { useLocalMedia, UseLocalMediaResult, useRoomConnection, VideoView } from "../lib/react";
+import {
+    useLocalMedia,
+    UseLocalMediaResult,
+    useRoomConnection,
+    VideoView,
+    getUsableCameraEffectPresets,
+} from "../lib/react";
 import PrecallExperience from "./components/PrecallExperience";
 import VideoExperience from "./components/VideoExperience";
 import { getFakeMediaStream } from "@whereby.com/core";
@@ -54,8 +60,7 @@ function RoomConnectionWithLocalMediaInner({
 
     useEffect(() => {
         (async () => {
-            const { getUsablePresets } = await import("@whereby.com/camera-effects");
-            setEffectPresets(getUsablePresets());
+            setEffectPresets(await getUsableCameraEffectPresets());
         })();
     }, []);
 
@@ -315,18 +320,97 @@ RoomConnectionStrictMode.parameters = {
     },
 };
 
-export const RoomConnectionWithBreakoutGroups = ({
-    roomUrl,
-    displayName,
-}: {
-    roomUrl: string;
-    displayName?: string;
-}) => {
-    if (!roomUrl || !roomUrl.match(roomRegEx)) {
-        return <p>Set room url on the Controls panel</p>;
-    }
+export const RoomConnectionWithBreakoutGroups = {
+    render: ({
+        roomUrl,
+        roomKey,
+        displayName,
+        roomOptions,
+    }: {
+        roomUrl: string;
+        roomKey: string;
+        displayName?: string;
+        roomOptions: Array<string>;
+    }) => {
+        if (!roomUrl || !roomUrl.match(roomRegEx)) {
+            return <p>Set room url on the Controls panel</p>;
+        }
 
-    return <VideoExperience displayName={displayName} roomName={roomUrl} showBreakoutGroups />;
+        return (
+            <VideoExperience
+                displayName={displayName}
+                roomName={roomUrl}
+                roomKey={roomKey}
+                showBreakoutGroups
+                showHostControls
+                joinRoomOnLoad={roomOptions.includes("joinRoomOnLoad")}
+            />
+        );
+    },
+    argTypes: {
+        ...defaultArgs.argTypes,
+        roomKey: { control: "text", type: { required: true } },
+        roomOptions: {
+            name: "Room options",
+            control: {
+                type: "check",
+                labels: {
+                    joinRoomOnLoad: "Join room when useRoomConnection is created",
+                },
+            },
+            options: ["joinRoomOnLoad"],
+        },
+    },
+    args: {
+        ...defaultArgs.args,
+        roomKey: process.env.STORYBOOK_ROOM_HOST_ROOMKEY || "[Host roomKey required]",
+        roomOptions: [],
+    },
+};
+
+// Participant's view of a breakout session (no host controls). Open this in one or more extra
+// tabs alongside the host story above (same room) to see the rooms overview / join flow and to
+// test participant-facing notifications (breakout timer, chat/media broadcast, etc).
+export const RoomConnectionWithBreakoutGroupsParticipant = {
+    render: ({
+        roomUrl,
+        displayName,
+        roomOptions,
+    }: {
+        roomUrl: string;
+        displayName?: string;
+        roomOptions: Array<string>;
+    }) => {
+        if (!roomUrl || !roomUrl.match(roomRegEx)) {
+            return <p>Set room url on the Controls panel</p>;
+        }
+
+        return (
+            <VideoExperience
+                displayName={displayName}
+                roomName={roomUrl}
+                showBreakoutGroups
+                joinRoomOnLoad={roomOptions.includes("joinRoomOnLoad")}
+            />
+        );
+    },
+    argTypes: {
+        ...defaultArgs.argTypes,
+        roomOptions: {
+            name: "Room options",
+            control: {
+                type: "check",
+                labels: {
+                    joinRoomOnLoad: "Join room when useRoomConnection is created",
+                },
+            },
+            options: ["joinRoomOnLoad"],
+        },
+    },
+    args: {
+        ...defaultArgs.args,
+        roomOptions: [],
+    },
 };
 
 export const RoomConnectionWithCameraEffects = ({
@@ -341,4 +425,25 @@ export const RoomConnectionWithCameraEffects = ({
     }
 
     return <VideoExperience displayName={displayName} roomName={roomUrl} showCameraEffects />;
+};
+
+export const RoomConnectionWithAudioDenoiser = ({
+    roomUrl,
+    displayName,
+}: {
+    roomUrl: string;
+    displayName?: string;
+}) => {
+    if (!roomUrl || !roomUrl.match(roomRegEx)) {
+        return <p>Set room url on the Controls panel</p>;
+    }
+    return <VideoExperience displayName={displayName} roomName={roomUrl} showAudioDenoiser />;
+};
+
+export const RoomConnectionWithFileSharing = ({ roomUrl, displayName }: { roomUrl: string; displayName?: string }) => {
+    if (!roomUrl || !roomUrl.match(roomRegEx)) {
+        return <p>Set room url on the Controls panel</p>;
+    }
+
+    return <VideoExperience displayName={displayName} roomName={roomUrl} showFileSharing />;
 };

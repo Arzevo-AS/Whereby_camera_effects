@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import DisplayNameForm from "./DisplayNameForm";
+import BreakoutPanel from "./breakout/BreakoutPanel";
 import { UseLocalMediaResult } from "../../lib/react/useLocalMedia/types";
 import { useRoomConnection } from "../../lib/react/useRoomConnection";
 import { VideoView } from "../../lib/react/VideoView";
+import { getUsableCameraEffectPresets, isAudioDenoiserSupported } from "../../lib/react";
 import {
+    ChatFileShare,
     ChatMessageEvent,
     RequestAudioEvent,
     SignalStatusEvent,
     StickyReactionEvent,
     NotificationEvents,
     RequestVideoEvent,
+    LiveCaptionsState,
 } from "@whereby.com/core";
 
 export default function VideoExperience({
@@ -24,6 +28,8 @@ export default function VideoExperience({
     joinRoomOnLoad,
     showBreakoutGroups,
     showCameraEffects,
+    showAudioDenoiser,
+    showFileSharing,
 }: {
     displayName?: string;
     roomName: string;
@@ -35,10 +41,17 @@ export default function VideoExperience({
     joinRoomOnLoad?: boolean;
     showBreakoutGroups?: boolean;
     showCameraEffects?: boolean;
+    showAudioDenoiser?: boolean;
+    showFileSharing?: boolean;
 }) {
     const [chatMessage, setChatMessage] = useState("");
+    const [chatMessageParent, setChatMessageParent] = useState("");
+    const [chatBroadcast, setChatBroadcast] = useState(false);
     const [isLocalScreenshareActive, setIsLocalScreenshareActive] = useState(false);
     const [effectPresets, setEffectPresets] = useState<Array<string>>([]);
+    const [audioDenoiserSupported, setAudioDenoiserSupported] = useState<boolean | null>(null);
+    const [audioDenoiserOn, setAudioDenoiserOn] = useState(false);
+    const [knockMessages, setKnockMessages] = useState<Record<string, string>>({});
 
     const { state, actions, events } = useRoomConnection(roomName, {
         localMediaOptions: {
@@ -56,16 +69,22 @@ export default function VideoExperience({
         remoteParticipants,
         connectionStatus,
         waitingParticipants,
+        chatMessages,
         screenshares,
         spotlightedParticipants,
         breakout,
         cloudRecording,
+        liveCaptions,
         liveTranscription,
+        fileUploads,
     } = state;
     const {
         knock,
         cancelKnock,
         sendChatMessage,
+        removeChatMessage,
+        sendFiles,
+        downloadFile,
         setDisplayName,
         joinRoom,
         leaveRoom,
@@ -75,34 +94,68 @@ export default function VideoExperience({
         endMeeting,
         toggleCamera,
         toggleMicrophone,
+        toggleHdMode,
         toggleLowDataMode,
+        toggleWidescreenMode,
         toggleRaiseHand,
         askToSpeak,
         acceptWaitingParticipant,
+        holdWaitingParticipant,
         rejectWaitingParticipant,
         startCloudRecording,
+        startLiveCaptions,
         startLiveTranscription,
         startScreenshare,
         stopCloudRecording,
+        stopLiveCaptions,
         stopLiveTranscription,
         stopScreenshare,
         spotlightParticipant,
         removeSpotlight,
         turnOffParticipantCameras,
         askToTurnOnCamera,
-        joinBreakoutGroup,
-        joinBreakoutMainRoom,
         switchCameraEffect,
         switchCameraEffectCustom,
         clearCameraEffect,
+        enableAudioDenoiser,
+        disableAudioDenoiser,
     } = actions;
+
+    async function handleDownloadFile(file: ChatFileShare) {
+        try {
+            const blob = await downloadFile(file);
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = file.name;
+            anchor.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            toast.error(`Failed to download ${file.name}`);
+            console.error(error);
+        }
+    }
 
     async function loadBackgroundEffects() {
         if (!showCameraEffects) return;
 
-        const { getUsablePresets } = await import("@whereby.com/camera-effects");
-        const usablePresets = getUsablePresets();
+        const usablePresets = await getUsableCameraEffectPresets();
         setEffectPresets(usablePresets);
+    }
+
+    async function loadAudioDenoiserSupport() {
+        if (!showAudioDenoiser) return;
+        setAudioDenoiserSupported(await isAudioDenoiserSupported());
+    }
+
+    async function handleEnableAudioDenoiser() {
+        await enableAudioDenoiser();
+        setAudioDenoiserOn(true);
+    }
+
+    async function handleDisableAudioDenoiser() {
+        await disableAudioDenoiser();
+        setAudioDenoiserOn(false);
     }
 
     useEffect(() => {
@@ -116,6 +169,7 @@ export default function VideoExperience({
         if (!localParticipant?.stream) return;
 
         loadBackgroundEffects();
+        loadAudioDenoiserSupport();
     }, [localParticipant?.stream]);
 
     function showIncomingChatMessageNotification({ message }: ChatMessageEvent) {
@@ -261,6 +315,18 @@ export default function VideoExperience({
                 case "requestVideoDisable":
                     showRequestVideoDisableNotification(event);
                     break;
+                case "breakoutTimerEnding":
+                    toast(event.message, { id: "breakoutTimerEnding", icon: "⏳" });
+                    break;
+                case "breakoutTimerExtended":
+                    toast(event.message, { id: "breakoutTimerExtended", icon: "⏱️" });
+                    break;
+                case "breakoutTimerEnded":
+                    toast(event.message, { id: "breakoutTimerEnded", icon: "⏰" });
+                    break;
+                case "breakoutGroupAssigned":
+                    toast(event.message, { id: "breakoutGroupAssigned", icon: "👥" });
+                    break;
             }
         };
 
@@ -271,6 +337,33 @@ export default function VideoExperience({
             events?.off("*", sdkEventHandler);
         };
     }, [events]);
+
+    function renderLiveCaptions(captions: LiveCaptionsState) {
+        captions?.captionLog.forEach(({ resultId, participantId, text }) => {
+            const shouldShowSenderDetails = Boolean(participantId);
+
+            const participant = shouldShowSenderDetails
+                ? [localParticipant, ...remoteParticipants].find((participant) => participant?.id === participantId)
+                : undefined;
+
+            const captionPrefix = participant ? `${participant.displayName}: ` : undefined;
+
+            const message = `${captionPrefix}${text}`;
+
+            toast(message, {
+                id: `caption-${resultId}`,
+                position: "bottom-center",
+            });
+        });
+    }
+
+    useEffect(() => {
+        if (!state.liveCaptions || state.liveCaptions.status !== "captioning") {
+            return;
+        }
+
+        renderLiveCaptions(state.liveCaptions);
+    }, [state]);
 
     return (
         <div>
@@ -295,11 +388,21 @@ export default function VideoExperience({
                         <div className="waiting_room">
                             <h2>Waiting room</h2>
                             {waitingParticipants.map((p) => {
+                                const message = knockMessages[p.id] || "";
                                 return (
                                     <div key={p.id}>
                                         Waiting: {p.displayName || "unknown"} {p.id}
+                                        <input
+                                            type="text"
+                                            placeholder="Message (optional)"
+                                            value={message}
+                                            onChange={(e) =>
+                                                setKnockMessages((prev) => ({ ...prev, [p.id]: e.target.value }))
+                                            }
+                                        />
                                         <button onClick={() => acceptWaitingParticipant(p.id)}>Accept</button>
-                                        <button onClick={() => rejectWaitingParticipant(p.id)}>Reject</button>
+                                        <button onClick={() => holdWaitingParticipant(p.id, message)}>Hold</button>
+                                        <button onClick={() => rejectWaitingParticipant(p.id, message)}>Reject</button>
                                     </div>
                                 );
                             })}
@@ -350,6 +453,22 @@ export default function VideoExperience({
                                 </span>
                             </>
                         )}
+
+                        <>
+                            <button
+                                onClick={() => {
+                                    if (liveCaptions) {
+                                        stopLiveCaptions();
+                                    } else {
+                                        startLiveCaptions();
+                                    }
+                                }}
+                            >
+                                {liveCaptions
+                                    ? `Live Captions: ${liveCaptions.status}`
+                                    : "Start Live Captioning (if available)"}
+                            </button>
+                        </>
                     </div>
 
                     {showHostControls && (
@@ -376,36 +495,15 @@ export default function VideoExperience({
                         </div>
                     )}
                     {showBreakoutGroups ? (
-                        <div>
-                            <h3>Breakout is {breakout.isActive ? "active" : "inactive"}</h3>
-                            {breakout.isActive ? <h2>Breakout groups</h2> : null}
-                            {breakout.isActive ? <h3>Current group: {breakout.currentGroup?.name}</h3> : null}
-                            {breakout.groupedParticipants.map((group) => {
-                                // main room
-                                if (group.group?.id === "") {
-                                    return null;
-                                }
-                                return (
-                                    <div key={group.group?.id}>
-                                        <h3>{group.group?.name}</h3>
-                                        {group.clients.map((p) => (
-                                            <div key={p.id}>{p.displayName || "Guest"}</div>
-                                        ))}
-                                        <button onClick={() => joinBreakoutGroup(group.group?.id || "")}>Join</button>
-                                    </div>
-                                );
-                            })}
-                            {breakout.isActive ? <h2>Main room</h2> : null}
-                            {breakout.groupedParticipants.map((p) => {
-                                if (p.group?.id === "") {
-                                    return p.clients.map((p) => <div key={p.id}>{p.displayName || "Guest"}</div>);
-                                }
-                                return null;
-                            })}
-                            {breakout.isActive ? (
-                                <button onClick={() => joinBreakoutMainRoom()}>Join main room</button>
-                            ) : null}
-                        </div>
+                        <BreakoutPanel
+                            breakout={breakout}
+                            connectionStatus={connectionStatus}
+                            localParticipant={localParticipant}
+                            remoteParticipants={remoteParticipants}
+                            spotlightedParticipants={spotlightedParticipants}
+                            actions={actions}
+                            showHostControls={showHostControls}
+                        />
                     ) : null}
 
                     {showCameraEffects ? (
@@ -452,6 +550,30 @@ export default function VideoExperience({
                                     </option>
                                 ))}
                             </select>
+                        </div>
+                    ) : null}
+
+                    {showAudioDenoiser ? (
+                        <div>
+                            <strong>Audio denoiser:</strong>{" "}
+                            {audioDenoiserSupported === null
+                                ? "Checking support…"
+                                : audioDenoiserSupported
+                                  ? audioDenoiserOn
+                                      ? "On"
+                                      : "Off"
+                                  : "Not supported in this browser"}
+                            {audioDenoiserSupported ? (
+                                <>
+                                    {" "}
+                                    <button onClick={handleEnableAudioDenoiser} disabled={audioDenoiserOn}>
+                                        Enable
+                                    </button>
+                                    <button onClick={handleDisableAudioDenoiser} disabled={!audioDenoiserOn}>
+                                        Disable
+                                    </button>
+                                </>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -591,6 +713,8 @@ export default function VideoExperience({
                         <button onClick={() => toggleCamera()}>Toggle camera</button>
                         <button onClick={() => toggleMicrophone()}>Toggle microphone</button>
                         <button onClick={() => toggleLowDataMode()}>Toggle low data mode</button>
+                        <button onClick={() => toggleHdMode()}>Toggle hd video mode</button>
+                        <button onClick={() => toggleWidescreenMode()}>Toggle widescreen video mode</button>
                         <button onClick={() => toggleRaiseHand()}>Toggle raise hand</button>
                         <button
                             onClick={() => {
@@ -607,16 +731,97 @@ export default function VideoExperience({
                         <DisplayNameForm initialDisplayName={displayName} onSetDisplayName={setDisplayName} />
                     </div>
                     <div className="chat">
+                        {chatMessages.length > 0 && <h3>Chat messages</h3>}
+                        {chatMessages.map((m) => {
+                            return (
+                                <div key={m.id}>
+                                    {m.parentId && (
+                                        <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "4px" }}>
+                                            Reply to{" "}
+                                            <i>
+                                                &quot;
+                                                {(chatMessages.find((cM) => cM.id === m.parentId) || {}).text}
+                                                &quot;
+                                            </i>
+                                            :{" "}
+                                        </div>
+                                    )}
+                                    {m.removed ? <s>{m.text}</s> : m.text}{" "}
+                                    {!m.removed && (m.sig || showHostControls) && (
+                                        <button type="button" onClick={() => removeChatMessage(m.id, m.sig)}>
+                                            Remove
+                                        </button>
+                                    )}
+                                    {showFileSharing && m.file && (
+                                        <button onClick={() => handleDownloadFile(m.file as ChatFileShare)}>
+                                            ⬇ {m.file.name} ({Math.round(m.file.size / 1024)} KB)
+                                        </button>
+                                    )}
+                                    <hr />
+                                </div>
+                            );
+                        })}
                         <form
                             onSubmit={(e) => {
                                 e.preventDefault();
-                                sendChatMessage(chatMessage);
+                                sendChatMessage(chatMessage, chatMessageParent, chatBroadcast);
                                 setChatMessage("");
+                                setChatMessageParent("");
                             }}
                         >
                             <input type="text" value={chatMessage} onChange={(e) => setChatMessage(e.target.value)} />
+                            {breakout.isActive ? (
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={chatBroadcast}
+                                        onChange={(e) => setChatBroadcast(e.target.checked)}
+                                    />
+                                    Broadcast to all groups
+                                </label>
+                            ) : null}
+                            <select value={chatMessageParent} onChange={(e) => setChatMessageParent(e.target.value)}>
+                                <option key="chat-select-room" value="">
+                                    Send to room
+                                </option>
+                                {chatMessages.map((m) => {
+                                    return (
+                                        <option key={`chat-select-${m.id}`} value={m.id}>
+                                            Reply to: {m.text}
+                                        </option>
+                                    );
+                                })}
+                            </select>
                             <button type="submit">Send message</button>
                         </form>
+                        {showFileSharing && (
+                            <div className="fileSharing">
+                                <label>
+                                    Share files:{" "}
+                                    <input
+                                        type="file"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files ?? []);
+                                            if (files.length) {
+                                                sendFiles(files);
+                                            }
+                                            e.target.value = "";
+                                        }}
+                                    />
+                                </label>
+                                {fileUploads.length > 0 && (
+                                    <ul className="fileUploads">
+                                        {fileUploads.map((upload) => (
+                                            <li key={upload.id}>
+                                                {upload.name} —{" "}
+                                                {upload.status === "error" ? `error: ${upload.error}` : upload.status}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </>
             )}

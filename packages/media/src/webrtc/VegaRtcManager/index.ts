@@ -26,6 +26,7 @@ import { addProducerCpuOveruseWatch, getLayers, getNumberOfActiveVideos, getNumb
 import { ClearableTimeout, ServerSocket, trackAnnotations } from "../../utils";
 import { createVegaConnectionManager, HostListEntryOptionalDC } from "../VegaConnectionManager";
 import { RtpCapabilities } from "mediasoup-client/lib/RtpParameters";
+import { updateRenderedDimensions } from "../stats/StatsMonitor";
 import {
     VegaCreateTransportResponse,
     VegaGetCapabilitiesResponse,
@@ -129,6 +130,12 @@ export default class VegaRtcManager implements RtcManager {
     _vegaConnectionManager?: ReturnType<typeof createVegaConnectionManager>;
     _networkIsDetectedUpBySignal: boolean;
     _cpuOveruseDetected: boolean;
+    // Temporary telemetry: measures how long the SFU WebSocket stays open ("zombie" — alive to the
+    // OS, dead in reality) after the browser reports offline, until it actually closes.
+    _sfuZombie: {
+        offlineDetectedAt: number | null;
+        onBrowserOffline: any;
+    };
     analytics: VegaAnalytics;
 
     constructor({ selfId, room, emitter, serverSocket, webrtcProvider, features, eventClaim }: VegaRtcManagerOptions) {
@@ -230,6 +237,18 @@ export default class VegaRtcManager implements RtcManager {
         this._networkIsDetectedUpBySignal = false;
         this._cpuOveruseDetected = false;
 
+        // Temporary telemetry: how late the SFU WebSocket closes after the browser reports offline.
+        // The `offline` event is our "connection likely dead" signal — the same one the signalling
+        // transport rides to reconnect; we record it but do not act on it here. Results are written
+        // onto the analytics object.
+        this._sfuZombie = {
+            offlineDetectedAt: null,
+            onBrowserOffline: () => this._sfuZombieOnOffline(),
+        };
+        if (typeof window !== "undefined") {
+            window.addEventListener("offline", this._sfuZombie.onBrowserOffline);
+        }
+
         this.analytics = {
             vegaRequestTimeout: 0,
             vegaUnknownResponse: 0,
@@ -253,6 +272,9 @@ export default class VegaRtcManager implements RtcManager {
             numIceConnected: 0,
             numIceDisconnected: 0,
             numIceFailed: 0,
+            sfuMsFromOfflineToClose: 0,
+            sfuOfflineWhileConnectedCount: 0,
+            sfuOfflineToCloseCount: 0,
         };
     }
 
@@ -331,6 +353,43 @@ export default class VegaRtcManager implements RtcManager {
         }
     }
 
+    _sfuZombieOnOffline() {
+        // Browser went offline while we hold an SFU WS — the moment we believe it's dead. Record the
+        // first such offline (a burst counts once); the gap to `_onClose` is how long the WS stays a
+        // zombie, which riding offline would cut.
+        if (!this._isConnectingOrConnected || this._sfuZombie.offlineDetectedAt !== null) {
+            return;
+        }
+        this._sfuZombie.offlineDetectedAt = Date.now();
+        this.analytics.sfuOfflineWhileConnectedCount++;
+
+        rtcStats.sendEvent("SfuOfflineWhileConnected", {
+            sfuWsReadyState: this._vegaConnection?.socket?.readyState,
+            sendTransportState: this._sendTransport?.connectionState,
+            recvTransportState: this._receiveTransport?.connectionState,
+        });
+    }
+
+    _sfuZombieReset() {
+        this._sfuZombie.offlineDetectedAt = null;
+    }
+
+    _sfuZombieOnClose(): number | undefined {
+        // The SFU WS closed. If we believed it dead (offline) and this is an unexpected close, bank
+        // how long after that it actually closed — the zombie time riding offline would cut. Only a
+        // real close counts: a WS that survives the offline (self-heals) never closes, so it adds
+        // nothing, keeping sfuMsFromOfflineToClose free of survived-offline inflation. A clean leave
+        // runs disconnectAll first, which clears _reconnect. Returns the gap for the rtcstats event.
+        let msFromOfflineToClose: number | undefined;
+        if (this._reconnect && this._sfuZombie.offlineDetectedAt !== null) {
+            msFromOfflineToClose = Date.now() - this._sfuZombie.offlineDetectedAt;
+            this.analytics.sfuMsFromOfflineToClose += msFromOfflineToClose;
+            this.analytics.sfuOfflineToCloseCount++;
+        }
+        this._sfuZombieReset();
+        return msFromOfflineToClose;
+    }
+
     setupSocketListeners() {
         this._socketListenerDeregisterFunctions.push(
             () => this._clearMediaServersRefresh(),
@@ -370,7 +429,14 @@ export default class VegaRtcManager implements RtcManager {
     }
 
     _connect() {
-        if (this._isConnectingOrConnected) return;
+        if (this._isConnectingOrConnected) {
+            // TEMP investigation event for COB-2771 — remove once understood
+            rtcStats.sendEvent("SfuConnectEarlyBail", {
+                readyState: this._vegaConnection?.socket?.readyState,
+                bufferedAmount: this._vegaConnection?.socket?.bufferedAmount,
+            });
+            return;
+        }
 
         if (!this._serverSocket.isConnected()) {
             // Consider reconnecting to SFU within glitchfree reconnect threshold.
@@ -425,6 +491,9 @@ export default class VegaRtcManager implements RtcManager {
                     this._isConnectingOrConnected = false;
                     this._onClose();
                 },
+                onAttemptFailed: ({ host, dc }) => {
+                    rtcStats.sendEvent("SfuConnectAttemptFailed", { host, dc });
+                },
             });
         }
         this._vegaConnectionManager.connect((metric: VegaAnalyticMetric) => this.analytics[metric]++);
@@ -450,11 +519,15 @@ export default class VegaRtcManager implements RtcManager {
 
         this._qualityMonitor.close();
         this._emitToPWA(rtcManagerEvents.SFU_CONNECTION_CLOSED);
+
+        const msFromOfflineToClose = this._sfuZombieOnClose();
+        rtcStats.sendEvent("SfuConnectionClosed", { msFromOfflineToClose });
     }
 
     async _join() {
         logger.info("_join()");
         this._emitToPWA(rtcManagerEvents.SFU_CONNECTION_OPEN);
+        rtcStats.sendEvent("SfuConnectionOpened", {});
 
         try {
             if (!this._vegaConnection) {
@@ -1647,6 +1720,14 @@ export default class VegaRtcManager implements RtcManager {
                 .getUserMedia({ video: constraints })
                 .then((stream) => {
                     const track = stream.getVideoTracks()[0];
+                    if (this._webcamPaused) {
+                        // if the user paused video inbetween the gUM call and the result,
+                        // we have to stop the track to avoid leaving the camera light on
+                        // and prevent sending video when we shouldn't be
+                        track.stop();
+                        return;
+                    }
+
                     localStream.addTrack(track);
                     this._monitorVideoTrack(track);
 
@@ -1727,6 +1808,7 @@ export default class VegaRtcManager implements RtcManager {
             this._streamIdToVideoResolution.set(streamId, { width, height });
             return;
         }
+        updateRenderedDimensions(consumer.track?.id, { width, height, time: Date.now() });
 
         const numberOfActiveVideos = getNumberOfActiveVideos(this._consumers);
         const numberOfTemporalLayers = getNumberOfTemporalLayers(consumer);
@@ -1761,6 +1843,14 @@ export default class VegaRtcManager implements RtcManager {
         if (this._reconnectTimeOut) {
             clearTimeout(this._reconnectTimeOut);
             this._reconnectTimeOut = null;
+        }
+
+        // Temporary SFU-zombie telemetry: a leave with an offline still open never saw a real close,
+        // so it's indistinguishable from a self-heal — don't bank it. Just reset and release the
+        // listener.
+        this._sfuZombieReset();
+        if (typeof window !== "undefined") {
+            window.removeEventListener("offline", this._sfuZombie.onBrowserOffline);
         }
         this._socketListenerDeregisterFunctions.forEach((func: any) => {
             func();

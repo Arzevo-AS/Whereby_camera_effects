@@ -4,16 +4,18 @@ import {
     BuildDeviceListOptions,
     GetConstraintsOptions,
     GetDeviceDataResult,
+    GetInitialStreamOptions,
     GetStreamOptions,
     GetStreamResult,
     GetUpdatedDevicesResult,
+    GetUserMediaAttempt,
     UpdatedDevicesInfo,
 } from "./types";
 import { trackAnnotations } from "../utils/annotations";
 
 const logger = new Logger();
 
-export const isMobile = /mobi/i.test(navigator.userAgent);
+export const isMobile = typeof navigator !== "undefined" && /mobi/i.test(navigator.userAgent);
 
 export class NoDevicesError extends Error {
     constructor(...args: any) {
@@ -171,22 +173,143 @@ export function replaceTracksInStream(stream: MediaStream, newStream: MediaStrea
     return replacedTracks;
 }
 
+function createGetUserMediaAttempts() {
+    const attempts: GetUserMediaAttempt[] = [];
+
+    const attempt = async (c: MediaStreamConstraints): Promise<MediaStream> => {
+        try {
+            const s = await getUserMedia(c);
+            attempts.push({ constraints: c, outcome: { ok: true } });
+            return s;
+        } catch (e: any) {
+            attempts.push({
+                constraints: c,
+                outcome: {
+                    ok: false,
+                    errorName: e?.name ?? "UnknownError",
+                    errorMessage: e?.message ?? String(e),
+                    ...(e?.constraint && { constraint: e.constraint }),
+                },
+            });
+            throw e;
+        }
+    };
+    const attachAttempts = (err?: any) => {
+        if (err) err.attempts = attempts;
+        return err;
+    };
+    return { attempts, attempt, attachAttempts };
+}
+
+export async function getInitialStream(constraintOpt: GetInitialStreamOptions): Promise<GetStreamResult> {
+    const { attempts, attempt, attachAttempts } = createGetUserMediaAttempts();
+    let error;
+    let stream;
+
+    const opts: GetConstraintsOptions = { ...constraintOpt, type: "exact" };
+
+    try {
+        stream = await attempt(getConstraints(opts));
+        return {
+            stream,
+            attempts,
+        };
+    } catch (e: any) {
+        logger.error(e);
+        error = e;
+    }
+
+    const acquireOneKind = async (targetConstraint: "videoId" | "audioId") => {
+        const retryOpts = {
+            ...opts,
+            options: {
+                ...opts.options,
+            },
+        };
+
+        let stream;
+        let lastError = error;
+
+        const ignoredConstraint = targetConstraint === "videoId" ? "audioId" : "videoId";
+
+        // Try with original constraints if the first combined attempt requested both kinds.
+        if (retryOpts[ignoredConstraint] !== false) {
+            retryOpts[ignoredConstraint] = false;
+
+            try {
+                stream = await attempt(getConstraints(retryOpts));
+                return stream;
+            } catch (e: any) {
+                logger.error(e);
+                lastError = e;
+            }
+        }
+
+        // Looser constraints cannot recover from a denied permission.
+        if (lastError?.name === "NotAllowedError") {
+            return;
+        }
+
+        // Drop deviceId from constraints if it was used.
+        if (retryOpts[targetConstraint]) {
+            retryOpts[targetConstraint] = null;
+            try {
+                stream = await attempt(getConstraints(retryOpts));
+                return stream;
+            } catch (e) {
+                logger.error(e);
+            }
+        }
+
+        // Try with lax constraints.
+        try {
+            retryOpts.options.lax = true;
+            stream = await attempt(getConstraints(retryOpts));
+            return stream;
+        } catch (e) {
+            logger.error(e);
+        }
+    };
+
+    if (opts.videoId !== false) {
+        stream = await acquireOneKind("videoId");
+    }
+
+    if (opts.audioId !== false) {
+        if (!stream) {
+            stream = await acquireOneKind("audioId");
+        } else {
+            const audioOnlyStream = await acquireOneKind("audioId");
+            if (audioOnlyStream) {
+                const audioTrack = audioOnlyStream.getAudioTracks()[0];
+                stream.addTrack(audioTrack);
+            }
+        }
+    }
+
+    if (!stream) {
+        throw attachAttempts(error ?? new Error("Unknown error"));
+    }
+    return { error, stream, attempts };
+}
+
 /**
  * Gets stream or replace tracks in with some fallbacks
  *
  * @param constraintOpt - for mediaConstraints.getConstraints (audioId/videoId etc)
  * @param options.replaceStream - stream to put new tracks into (instead of returning fresh)
  * @param options.fallback - try to give working stream
- * @returns {Promise<{stream, error=null}>}
+ * @returns {Promise<{stream, error=null, attempts}>}
  */
 export async function getStream(
     constraintOpt: GetConstraintsOptions,
     { replaceStream, fallback = true }: GetStreamOptions = {},
 ): Promise<GetStreamResult> {
     let error: any;
-    let newConstraints: GetConstraintsOptions | undefined;
+    let newConstraints: MediaStreamConstraints | undefined;
     let retryConstraintOpt: any;
     let stream: MediaStream | null = null;
+    const { attempts, attempt, attachAttempts } = createGetUserMediaAttempts();
 
     const only = (constraintOpt.audioId === false && "video") || (constraintOpt.videoId === false && "audio");
     // Mobile can't open two devices at once. Firefox also can't open two audio devices at once.
@@ -194,6 +317,7 @@ export async function getStream(
     // unless required.
     const stopTracks = isMobile || only !== "video";
     const constraints = getConstraints(constraintOpt);
+
     const addDetails = (err?: any, orgErr?: any) => {
         if (err) {
             err.details = {
@@ -217,14 +341,14 @@ export async function getStream(
             // let's try to only get one of them.
 
             try {
-                stream = await getUserMedia(getConstraints({ ...constraintOpt, audioId: false }));
+                stream = await attempt(getConstraints({ ...constraintOpt, audioId: false }));
             } catch (e2: any) {
                 if (e2?.name !== "NotFoundError") {
                     addDetails(e2, e);
                 }
             }
             try {
-                if (!stream) stream = await getUserMedia(getConstraints({ ...constraintOpt, videoId: false }));
+                if (!stream) stream = await attempt(getConstraints({ ...constraintOpt, videoId: false }));
             } catch (e2) {
                 addDetails(e2, e);
             }
@@ -233,11 +357,11 @@ export async function getStream(
 
     if (stopTracks && replaceStream) stopStreamTracks(replaceStream, only);
     try {
-        stream = await getUserMedia(constraints);
+        stream = await attempt(constraints);
     } catch (e: any) {
         error = e;
         if (!fallback) {
-            throw addDetails(e);
+            throw attachAttempts(addDetails(e));
         }
         if (e?.name === "OverconstrainedError") {
             const laxConstraints = {
@@ -268,7 +392,7 @@ export async function getStream(
                 // First of all, it seems like NotReadableError is REALLY a
                 // OverconstrainedError in many cases, let's try with laxer constraints
                 try {
-                    stream = await getUserMedia(
+                    stream = await attempt(
                         getConstraints({ ...constraintOpt, options: { ...constraintOpt.options, lax: true } }),
                     );
                 } catch (e2) {
@@ -281,7 +405,7 @@ export async function getStream(
                 ];
                 if (!stream && problemWith) {
                     try {
-                        stream = await getUserMedia(getConstraints({ ...constraintOpt, [problemWith]: null }));
+                        stream = await attempt(getConstraints({ ...constraintOpt, [problemWith]: null }));
                     } catch (e2) {
                         logger.warn(`Re-tried ${problemWith} with no constraints, but failed: ${"" + e2}`);
                     }
@@ -292,7 +416,7 @@ export async function getStream(
                     const tryOnly = problemWith ? [problemWith] : ["videoId", "audioId"];
                     for (const kind of tryOnly) {
                         try {
-                            stream = await getUserMedia(getConstraints({ ...constraintOpt, [kind]: false }));
+                            stream = await attempt(getConstraints({ ...constraintOpt, [kind]: false }));
                         } catch (e2) {
                             logger.warn(`Re-tried without ${kind}, but failed: ${"" + e2}`);
                         }
@@ -308,20 +432,21 @@ export async function getStream(
     }
     if (retryConstraintOpt) {
         const onlyConstraints = only ? { audio: { videoId: false }, video: { audioId: false } }[only] : {};
-        newConstraints = getConstraints({
+        const retryConstraints = getConstraints({
             ...constraintOpt,
             ...retryConstraintOpt,
             options: { ...constraintOpt.options, lax: retryConstraintOpt.lax },
             ...onlyConstraints,
         });
+        newConstraints = retryConstraints;
         try {
-            stream = await getUserMedia(newConstraints);
+            stream = await attempt(retryConstraints);
         } catch (e) {
-            throw addDetails(e, error);
+            throw attachAttempts(addDetails(e, error));
         }
     }
     if (!stream) {
-        throw addDetails(error);
+        throw attachAttempts(addDetails(error));
     }
     let replacedTracks;
     if (replaceStream) {
@@ -330,7 +455,7 @@ export async function getStream(
         replacedTracks = replaceTracksInStream(replaceStream, stream, only);
         stream = replaceStream;
     }
-    return { error: error && addDetails(error), stream, replacedTracks };
+    return { error: error && addDetails(error), stream, replacedTracks, attempts };
 }
 
 export function hasGetDisplayMedia() {
@@ -343,8 +468,8 @@ export function hasGetDisplayMedia() {
 
 const defaultDisplayMediaConstraints = {
     video: {
-        width: { max: window.screen.width },
-        height: { max: window.screen.height },
+        width: { max: typeof window !== "undefined" ? window.screen.width : 0 },
+        height: { max: typeof window !== "undefined" ? window.screen.height : 0 },
     },
 };
 /**

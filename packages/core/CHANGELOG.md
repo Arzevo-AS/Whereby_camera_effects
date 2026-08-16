@@ -1,5 +1,265 @@
 # @whereby.com/core
 
+## 1.18.2
+
+### Patch Changes
+
+- Updated dependencies [ac8571e]
+    - @whereby.com/media@9.7.0
+    - @whereby.com/audio-denoiser@1.0.10
+
+## 1.18.1
+
+### Patch Changes
+
+- Updated dependencies [34f86b3]
+    - @whereby.com/media@9.6.1
+    - @whereby.com/audio-denoiser@1.0.9
+
+## 1.18.0
+
+### Minor Changes
+
+- 6aa45eb: Add advanced breakout controls
+- 489953e: Add support for breakout configuration
+
+### Patch Changes
+
+- Updated dependencies [489953e]
+    - @whereby.com/media@9.6.0
+    - @whereby.com/audio-denoiser@1.0.8
+
+## 1.17.0
+
+### Minor Changes
+
+- c1191e0: Add waiting room message support for on-hold and reject knocks. Hosts can now
+  put a waiting participant on hold or reject them with an optional message via
+  `holdWaitingParticipant(participantId, message?)` and
+  `rejectWaitingParticipant(participantId, message?)`. Knockers receive the
+  message and, when put on hold, a new `knock_on_hold` connection status, both
+  exposed through the `knockResponse` field on the room connection state.
+
+### Patch Changes
+
+- Updated dependencies [c1191e0]
+    - @whereby.com/media@9.5.0
+    - @whereby.com/audio-denoiser@1.0.7
+
+## 1.16.3
+
+### Patch Changes
+
+- e54cab7: core: release camera and microphone when the local client is kicked, eg when the meeting is ended by the host
+
+## 1.16.2
+
+### Patch Changes
+
+- Updated dependencies [d0c633b]
+    - @whereby.com/media@9.4.0
+    - @whereby.com/audio-denoiser@1.0.6
+
+## 1.16.1
+
+### Patch Changes
+
+- 89cfd0c: Fix crash in non-browser environments
+- Updated dependencies [89cfd0c]
+    - @whereby.com/media@9.3.1
+    - @whereby.com/audio-denoiser@1.0.5
+
+## 1.16.0
+
+### Minor Changes
+
+- 6be9bc2: Decode roomUrl on doAppStart
+
+## 1.15.3
+
+### Patch Changes
+
+- Updated dependencies [aab898a]
+    - @whereby.com/media@9.3.0
+    - @whereby.com/audio-denoiser@1.0.4
+
+## 1.15.2
+
+### Patch Changes
+
+- c7a6770: Fix camera effects being lost when the camera is toggled off and on.
+
+    The active effect is now remembered while the camera is off and automatically re-applied to the new camera track when the camera is turned back on, so effects keep working (and can still be changed) after a toggle.
+
+## 1.15.1
+
+### Patch Changes
+
+- Updated dependencies [32e6693]
+    - @whereby.com/media@9.2.7
+    - @whereby.com/audio-denoiser@1.0.3
+
+## 1.15.0
+
+### Minor Changes
+
+- 41b7d6e: Add live captions support to Core SDK
+
+### Patch Changes
+
+- Updated dependencies [41b7d6e]
+    - @whereby.com/media@9.2.6
+    - @whereby.com/audio-denoiser@1.0.2
+
+## 1.14.2
+
+### Patch Changes
+
+- Updated dependencies [ddaa203]
+    - @whereby.com/camera-effects@1.1.3
+
+## 1.14.1
+
+### Patch Changes
+
+- Updated dependencies [36bf846]
+    - @whereby.com/camera-effects@1.1.2
+
+## 1.14.0
+
+### Minor Changes
+
+- 2da8deb: Add file sharing support
+
+### Patch Changes
+
+- Updated dependencies [2da8deb]
+    - @whereby.com/media@9.2.5
+    - @whereby.com/audio-denoiser@1.0.1
+
+## 1.13.0
+
+### Minor Changes
+
+- add4500: Add audio denoiser support
+
+### Patch Changes
+
+- 6afb2ae: Bundle `@whereby.com/audio-denoiser` and `@whereby.com/camera-effects` as direct dependencies instead of optional peer dependencies. Consumers no longer need to install these packages separately to use noise reduction or camera effects. The effect code is still loaded on demand via dynamic import, so there is no impact on initial bundle size for consumers who don't use these features.
+- Updated dependencies [add4500]
+    - @whereby.com/audio-denoiser@1.0.0
+
+## 1.12.1
+
+### Patch Changes
+
+- Updated dependencies [f453a6b]
+    - @whereby.com/media@9.2.4
+
+## 1.12.0
+
+### Minor Changes
+
+- e38a74f: Add video HD mode and Widescreen mode toggles to Core SDK
+
+## 1.11.3
+
+### Patch Changes
+
+- Updated dependencies [35d6da0]
+    - @whereby.com/media@9.2.3
+
+## 1.11.2
+
+### Patch Changes
+
+- Updated dependencies [b0007d0]
+    - @whereby.com/media@9.2.2
+
+## 1.11.1
+
+### Patch Changes
+
+- Updated dependencies [2a6f2e5]
+    - @whereby.com/media@9.2.1
+
+## 1.11.0
+
+### Minor Changes
+
+- c6ca91d: Add chat message removal API and chat message removal response handling to Core SDK
+
+### Patch Changes
+
+- 563b5c5: Expose parentId (if available) with chat messages to render reply interfaces
+- Updated dependencies [b86c66d]
+- Updated dependencies [c6ca91d]
+- Updated dependencies [b86c66d]
+    - @whereby.com/media@9.2.0
+
+## 1.10.19
+
+### Patch Changes
+
+- Updated dependencies [1893566]
+    - @whereby.com/media@9.1.1
+
+## 1.10.18
+
+### Patch Changes
+
+- Updated dependencies [9672c3d]
+    - @whereby.com/media@9.1.0
+
+## 1.10.17
+
+### Patch Changes
+
+- Updated dependencies [f5029ed]
+    - @whereby.com/media@9.0.0
+
+## 1.10.16
+
+### Patch Changes
+
+- Updated dependencies [e0a0059]
+    - @whereby.com/media@8.3.5
+
+## 1.10.15
+
+### Patch Changes
+
+- Updated dependencies [de1fef4]
+    - @whereby.com/media@8.3.4
+
+## 1.10.14
+
+### Patch Changes
+
+- Updated dependencies [8b85220]
+    - @whereby.com/media@8.3.3
+
+## 1.10.13
+
+### Patch Changes
+
+- Updated dependencies [4f97295]
+    - @whereby.com/media@8.3.2
+
+## 1.10.12
+
+### Patch Changes
+
+- Updated dependencies [a1dc8b5]
+    - @whereby.com/media@8.3.1
+
+## 1.10.11
+
+### Patch Changes
+
+- Updated dependencies [065d97c]
+    - @whereby.com/media@8.3.0
+
 ## 1.10.10
 
 ### Patch Changes

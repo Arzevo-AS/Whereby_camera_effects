@@ -1,5 +1,205 @@
 # @whereby.com/assistant-sdk
 
+## 1.2.100
+
+### Patch Changes
+
+- @whereby.com/core@1.18.2
+
+## 1.2.99
+
+### Patch Changes
+
+- @whereby.com/core@1.18.1
+
+## 1.2.98
+
+### Patch Changes
+
+- Updated dependencies [6aa45eb]
+- Updated dependencies [489953e]
+    - @whereby.com/core@1.18.0
+
+## 1.2.97
+
+### Patch Changes
+
+- Updated dependencies [c1191e0]
+    - @whereby.com/core@1.17.0
+
+## 1.2.96
+
+### Patch Changes
+
+- Updated dependencies [e54cab7]
+    - @whereby.com/core@1.16.3
+
+## 1.2.95
+
+### Patch Changes
+
+- @whereby.com/core@1.16.2
+
+## 1.2.94
+
+### Patch Changes
+
+- Updated dependencies [89cfd0c]
+    - @whereby.com/core@1.16.1
+
+## 1.2.93
+
+### Patch Changes
+
+- Updated dependencies [6be9bc2]
+    - @whereby.com/core@1.16.0
+
+## 1.2.92
+
+### Patch Changes
+
+- @whereby.com/core@1.15.3
+
+## 1.2.91
+
+### Patch Changes
+
+- Updated dependencies [c7a6770]
+    - @whereby.com/core@1.15.2
+
+## 1.2.90
+
+### Patch Changes
+
+- @whereby.com/core@1.15.1
+
+## 1.2.89
+
+### Patch Changes
+
+- Updated dependencies [41b7d6e]
+    - @whereby.com/core@1.15.0
+
+## 1.2.88
+
+### Patch Changes
+
+- @whereby.com/core@1.14.2
+
+## 1.2.87
+
+### Patch Changes
+
+- @whereby.com/core@1.14.1
+
+## 1.2.86
+
+### Patch Changes
+
+- Updated dependencies [2da8deb]
+    - @whereby.com/core@1.14.0
+
+## 1.2.85
+
+### Patch Changes
+
+- Updated dependencies [6afb2ae]
+- Updated dependencies [add4500]
+    - @whereby.com/core@1.13.0
+
+## 1.2.84
+
+### Patch Changes
+
+- @whereby.com/core@1.12.1
+
+## 1.2.83
+
+### Patch Changes
+
+- Updated dependencies [e38a74f]
+    - @whereby.com/core@1.12.0
+
+## 1.2.82
+
+### Patch Changes
+
+- @whereby.com/core@1.11.3
+
+## 1.2.81
+
+### Patch Changes
+
+- @whereby.com/core@1.11.2
+
+## 1.2.80
+
+### Patch Changes
+
+- @whereby.com/core@1.11.1
+
+## 1.2.79
+
+### Patch Changes
+
+- Updated dependencies [563b5c5]
+- Updated dependencies [c6ca91d]
+    - @whereby.com/core@1.11.0
+
+## 1.2.78
+
+### Patch Changes
+
+- @whereby.com/core@1.10.19
+
+## 1.2.77
+
+### Patch Changes
+
+- @whereby.com/core@1.10.18
+
+## 1.2.76
+
+### Patch Changes
+
+- @whereby.com/core@1.10.17
+
+## 1.2.75
+
+### Patch Changes
+
+- @whereby.com/core@1.10.16
+
+## 1.2.74
+
+### Patch Changes
+
+- @whereby.com/core@1.10.15
+
+## 1.2.73
+
+### Patch Changes
+
+- @whereby.com/core@1.10.14
+
+## 1.2.72
+
+### Patch Changes
+
+- @whereby.com/core@1.10.13
+
+## 1.2.71
+
+### Patch Changes
+
+- @whereby.com/core@1.10.12
+
+## 1.2.70
+
+### Patch Changes
+
+- @whereby.com/core@1.10.11
+
 ## 1.2.69
 
 ### Patch Changes

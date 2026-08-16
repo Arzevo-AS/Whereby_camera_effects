@@ -1,5 +1,300 @@
 # @whereby.com/browser-sdk
 
+## 3.29.2
+
+### Patch Changes
+
+- Updated dependencies [ac8571e]
+    - @whereby.com/media@9.7.0
+    - @whereby.com/core@1.18.2
+
+## 3.29.1
+
+### Patch Changes
+
+- Updated dependencies [34f86b3]
+    - @whereby.com/media@9.6.1
+    - @whereby.com/core@1.18.1
+
+## 3.29.0
+
+### Minor Changes
+
+- 6aa45eb: Add advanced breakout controls
+- 489953e: Add support for breakout configuration
+
+### Patch Changes
+
+- Updated dependencies [6aa45eb]
+- Updated dependencies [489953e]
+    - @whereby.com/core@1.18.0
+    - @whereby.com/media@9.6.0
+
+## 3.28.0
+
+### Minor Changes
+
+- c1191e0: Add waiting room message support for on-hold and reject knocks. Hosts can now
+  put a waiting participant on hold or reject them with an optional message via
+  `holdWaitingParticipant(participantId, message?)` and
+  `rejectWaitingParticipant(participantId, message?)`. Knockers receive the
+  message and, when put on hold, a new `knock_on_hold` connection status, both
+  exposed through the `knockResponse` field on the room connection state.
+
+### Patch Changes
+
+- Updated dependencies [c1191e0]
+    - @whereby.com/media@9.5.0
+    - @whereby.com/core@1.17.0
+
+## 3.27.0
+
+### Minor Changes
+
+- f4bf017: browser-sdk: add optional renderSubgridParticipant prop to the VideoGrid component, allowing developers to override the participant UI in the video subgrid
+
+## 3.26.7
+
+### Patch Changes
+
+- Updated dependencies [e54cab7]
+    - @whereby.com/core@1.16.3
+
+## 3.26.6
+
+### Patch Changes
+
+- Updated dependencies [d0c633b]
+    - @whereby.com/media@9.4.0
+    - @whereby.com/core@1.16.2
+
+## 3.26.5
+
+### Patch Changes
+
+- Updated dependencies [89cfd0c]
+    - @whereby.com/media@9.3.1
+    - @whereby.com/core@1.16.1
+
+## 3.26.4
+
+### Patch Changes
+
+- Updated dependencies [6be9bc2]
+    - @whereby.com/core@1.16.0
+
+## 3.26.3
+
+### Patch Changes
+
+- Updated dependencies [aab898a]
+    - @whereby.com/media@9.3.0
+    - @whereby.com/core@1.15.3
+
+## 3.26.2
+
+### Patch Changes
+
+- Updated dependencies [c7a6770]
+    - @whereby.com/core@1.15.2
+
+## 3.26.1
+
+### Patch Changes
+
+- Updated dependencies [32e6693]
+    - @whereby.com/media@9.2.7
+    - @whereby.com/core@1.15.1
+
+## 3.26.0
+
+### Minor Changes
+
+- aca47aa: Add live captions start/stop to Browser SDK
+
+### Patch Changes
+
+- Updated dependencies [41b7d6e]
+- Updated dependencies [41b7d6e]
+    - @whereby.com/media@9.2.6
+    - @whereby.com/core@1.15.0
+
+## 3.25.2
+
+### Patch Changes
+
+- @whereby.com/core@1.14.2
+
+## 3.25.1
+
+### Patch Changes
+
+- @whereby.com/core@1.14.1
+
+## 3.25.0
+
+### Minor Changes
+
+- 2da8deb: Add file sharing support
+
+### Patch Changes
+
+- Updated dependencies [2da8deb]
+- Updated dependencies [2da8deb]
+    - @whereby.com/core@1.14.0
+    - @whereby.com/media@9.2.5
+
+## 3.24.0
+
+### Minor Changes
+
+- b71d08d: Re-export `getUsableCameraEffectPresets()` and `isAudioDenoiserSupported()` from the `@whereby.com/browser-sdk/react` entry, so consumers can query camera effect and audio denoiser capabilities without depending on `@whereby.com/core` directly. Like in core, these load the underlying package on demand via dynamic import.
+
+### Patch Changes
+
+- Updated dependencies [6afb2ae]
+- Updated dependencies [add4500]
+    - @whereby.com/core@1.13.0
+
+## 3.23.0
+
+### Minor Changes
+
+- d044200: Pass this.roomUrl.href to iframe
+
+## 3.22.1
+
+### Patch Changes
+
+- Updated dependencies [f453a6b]
+    - @whereby.com/media@9.2.4
+    - @whereby.com/core@1.12.1
+
+## 3.22.0
+
+### Minor Changes
+
+- 206faac: Add video hd and widescreen toggle API to Browser SDK
+
+### Patch Changes
+
+- Updated dependencies [e38a74f]
+    - @whereby.com/core@1.12.0
+
+## 3.21.3
+
+### Patch Changes
+
+- Updated dependencies [35d6da0]
+    - @whereby.com/media@9.2.3
+    - @whereby.com/core@1.11.3
+
+## 3.21.2
+
+### Patch Changes
+
+- Updated dependencies [b0007d0]
+    - @whereby.com/media@9.2.2
+    - @whereby.com/core@1.11.2
+
+## 3.21.1
+
+### Patch Changes
+
+- Updated dependencies [2a6f2e5]
+    - @whereby.com/media@9.2.1
+    - @whereby.com/core@1.11.1
+
+## 3.21.0
+
+### Minor Changes
+
+- b86c66d: Add replies capability when sending in-room chat messages
+
+### Patch Changes
+
+- 563b5c5: Expose parentId (if available) with chat messages to render reply interfaces
+- c6ca91d: Expose removeChatMessage API in Browser SDK
+- Updated dependencies [563b5c5]
+- Updated dependencies [b86c66d]
+- Updated dependencies [c6ca91d]
+- Updated dependencies [b86c66d]
+- Updated dependencies [c6ca91d]
+    - @whereby.com/core@1.11.0
+    - @whereby.com/media@9.2.0
+
+## 3.20.19
+
+### Patch Changes
+
+- Updated dependencies [1893566]
+    - @whereby.com/media@9.1.1
+    - @whereby.com/core@1.10.19
+
+## 3.20.18
+
+### Patch Changes
+
+- Updated dependencies [9672c3d]
+    - @whereby.com/media@9.1.0
+    - @whereby.com/core@1.10.18
+
+## 3.20.17
+
+### Patch Changes
+
+- Updated dependencies [f5029ed]
+    - @whereby.com/media@9.0.0
+    - @whereby.com/core@1.10.17
+
+## 3.20.16
+
+### Patch Changes
+
+- Updated dependencies [e0a0059]
+    - @whereby.com/media@8.3.5
+    - @whereby.com/core@1.10.16
+
+## 3.20.15
+
+### Patch Changes
+
+- Updated dependencies [de1fef4]
+    - @whereby.com/media@8.3.4
+    - @whereby.com/core@1.10.15
+
+## 3.20.14
+
+### Patch Changes
+
+- Updated dependencies [8b85220]
+    - @whereby.com/media@8.3.3
+    - @whereby.com/core@1.10.14
+
+## 3.20.13
+
+### Patch Changes
+
+- Updated dependencies [4f97295]
+    - @whereby.com/media@8.3.2
+    - @whereby.com/core@1.10.13
+
+## 3.20.12
+
+### Patch Changes
+
+- Updated dependencies [a1dc8b5]
+    - @whereby.com/media@8.3.1
+    - @whereby.com/core@1.10.12
+
+## 3.20.11
+
+### Patch Changes
+
+- Updated dependencies [065d97c]
+    - @whereby.com/media@8.3.0
+    - @whereby.com/core@1.10.11
+
 ## 3.20.10
 
 ### Patch Changes

@@ -3,6 +3,7 @@ export { VideoView } from "./VideoView";
 export { useRoomConnection } from "./useRoomConnection";
 export { useLocalMedia } from "./useLocalMedia";
 export { Grid as VideoGrid, GridCell, GridVideoView } from "./Grid";
+export { MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE, ACCEPTED_FILE_TYPES } from "@whereby.com/core";
 export {
     ParticipantMenu,
     ParticipantMenuContent,
@@ -10,15 +11,21 @@ export {
     ParticipantMenuTrigger,
 } from "./Grid/ParticipantMenu";
 
+export { getUsableCameraEffectPresets, isAudioDenoiserSupported } from "@whereby.com/core";
+
 export type { UseLocalMediaResult } from "./useLocalMedia/types";
 
 export type { RoomConnectionActions, RoomConnectionOptions } from "./useRoomConnection/types";
 
 export type {
     ChatMessageState as ChatMessage,
+    ChatFileShare,
+    FileUpload,
+    FileShareError,
     CloudRecordingState as CloudRecording,
     LiveStreamState as LiveStreaming,
     BreakoutState as Breakout,
+    KnockResponse,
     LocalParticipantState as LocalParticipant,
     RemoteParticipantState as RemoteParticipant,
     RoomConnectionState as RoomConnection,

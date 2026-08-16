@@ -1,5 +1,159 @@
 # @whereby.com/media
 
+## 9.7.0
+
+### Minor Changes
+
+- ac8571e: Add getInitialStream for initial media acquisition
+
+## 9.6.1
+
+### Patch Changes
+
+- 34f86b3: Add internal telemetry for SFU media recovery after network changes
+
+## 9.6.0
+
+### Minor Changes
+
+- 489953e: Add support for breakout configuration
+
+## 9.5.0
+
+### Minor Changes
+
+- c1191e0: Add waiting room message support for on-hold and reject knocks. Hosts can now
+  put a waiting participant on hold or reject them with an optional message via
+  `holdWaitingParticipant(participantId, message?)` and
+  `rejectWaitingParticipant(participantId, message?)`. Knockers receive the
+  message and, when put on hold, a new `knock_on_hold` connection status, both
+  exposed through the `knockResponse` field on the room connection state.
+
+## 9.4.0
+
+### Minor Changes
+
+- d0c633b: media: tweaked quality metric
+
+## 9.3.1
+
+### Patch Changes
+
+- 89cfd0c: Fix crash in non-browser environments
+
+## 9.3.0
+
+### Minor Changes
+
+- aab898a: media: Adds media quality tracking
+
+## 9.2.7
+
+### Patch Changes
+
+- 32e6693: Remove P2P addTrack investigation metrics
+
+## 9.2.6
+
+### Patch Changes
+
+- 41b7d6e: Fix live_captions\* event type definitions
+
+## 9.2.5
+
+### Patch Changes
+
+- 2da8deb: Add file sharing types
+
+## 9.2.4
+
+### Patch Changes
+
+- f453a6b: media: Tracks webrtc api health
+
+## 9.2.3
+
+### Patch Changes
+
+- 35d6da0: Restore filtering of preferred deviceIds against the devices list in getConstraints
+
+## 9.2.2
+
+### Patch Changes
+
+- b0007d0: Emit rtcstats events for SFU connection lifecycle
+
+## 9.2.1
+
+### Patch Changes
+
+- 2a6f2e5: Forward preferred deviceId to gUM even when the device list is sparse
+
+## 9.2.0
+
+### Minor Changes
+
+- b86c66d: Add replies capability when sending in-room chat messages
+
+### Patch Changes
+
+- b86c66d: Add parentId to ChatMessage type definition
+- c6ca91d: Add remove_chat_message and chat_message_removed signal event types
+
+## 9.1.1
+
+### Patch Changes
+
+- 1893566: Fix stopOrResumeVideo race
+
+## 9.1.0
+
+### Minor Changes
+
+- 9672c3d: Expose getUserMedia attempts on getStream result and error
+
+## 9.0.0
+
+### Major Changes
+
+- f5029ed: Drop support for Node < 24. The minimum supported Node.js version is now 24.
+
+## 8.3.5
+
+### Patch Changes
+
+- e0a0059: Buffer remote ICE candidates during a new local offer in P2P
+
+## 8.3.4
+
+### Patch Changes
+
+- de1fef4: Ignore stale SDP answer after PC recreation
+
+## 8.3.3
+
+### Patch Changes
+
+- 8b85220: Catch errors for early ice candidates in P2P
+
+## 8.3.2
+
+### Patch Changes
+
+- 4f97295: Fix ip-address CVE-2026-42338
+
+## 8.3.1
+
+### Patch Changes
+
+- a1dc8b5: Return map-like object when getStats fails during stats collection
+
+## 8.3.0
+
+### Minor Changes
+
+- 065d97c: media: Fixes stats collection issues on firefox
+
 ## 8.2.8
 
 ### Patch Changes

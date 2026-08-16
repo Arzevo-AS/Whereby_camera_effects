@@ -1,7 +1,7 @@
 {
     "name": "@whereby.com/media",
     "description": "Media library for Whereby",
-    "version": "8.2.8",
+    "version": "9.7.0",
     "license": "MIT",
     "homepage": "https://github.com/whereby/sdk",
     "repository": {
@@ -52,9 +52,10 @@
     "dependencies": {
         "check-ip": "^1.1.1",
         "events": "^3.3.0",
-        "ip-address": "^9.0.5",
+        "ip-address": "^10.1.1",
         "mediasoup-client": "3.19.0",
         "@whereby.com/rtcstats": "5.4.2",
+        "@whereby.com/webrtcapihealthcheck": "1.0.1",
         "sdp": "^3.2.0",
         "sdp-transform": "^2.14.2",
         "socket.io-client": "4.7.2",
@@ -80,7 +81,7 @@
         "typescript": "catalog:"
     },
     "engines": {
-        "node": ">=16.0.0"
+        "node": ">=24.0.0"
     },
     "prettier": "@whereby.com/prettier-config"
 }

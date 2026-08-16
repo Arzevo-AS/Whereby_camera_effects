@@ -6,7 +6,7 @@ export const removePeerConnection = (pc: RTCPeerConnection) => {
     peerConnections = peerConnections.filter((old) => old !== pc);
 };
 
-if (window.RTCPeerConnection) {
+if (typeof window !== "undefined" && window.RTCPeerConnection) {
     const OriginalRTCPeerConnection = window.RTCPeerConnection;
     function PatchedRTCPeerConnection(rtcConfig?: RTCConfiguration) {
         const pc = new OriginalRTCPeerConnection(rtcConfig);
@@ -25,8 +25,6 @@ if (window.RTCPeerConnection) {
     (window.RTCPeerConnection as any) = PatchedRTCPeerConnection;
 }
 
-export const getCurrentPeerConnections = () => peerConnections;
-
+export const getCurrentPeerConnections = () => peerConnections.filter((p) => p.connectionState !== "closed");
 export const getPeerConnectionIndex = (pc: RTCPeerConnection) => peerConnectionData.get(pc)?.index;
-
 export const setPeerConnectionsForTests = (pcs: RTCPeerConnection[]) => (peerConnections = pcs);

@@ -132,8 +132,14 @@ export type GetMediaConstraintsOptions = {
     widescreen: boolean;
 };
 
+export type GetInitialStreamOptions = {
+    videoId: false | string | null;
+    audioId: false | string | null;
+    options: Omit<GetMediaConstraintsOptions, "preferredDeviceIds">;
+};
+
 export type GetConstraintsOptions = {
-    devices: MediaDeviceInfo[];
+    devices?: MediaDeviceInfo[];
     audioId?: boolean | string | null;
     videoId?: boolean | string | null;
     type?: "ideal" | "exact";
@@ -151,10 +157,20 @@ export interface BuildDeviceListOptions {
     kind: MediaDeviceKind;
 }
 
+export type GetUserMediaAttemptOutcome =
+    | { ok: true }
+    | { ok: false; errorName: string; errorMessage: string; constraint?: string };
+
+export type GetUserMediaAttempt = {
+    constraints: MediaStreamConstraints;
+    outcome: GetUserMediaAttemptOutcome;
+};
+
 export type GetStreamResult = {
     error?: unknown;
     replacedTracks?: MediaStreamTrack[];
     stream: MediaStream;
+    attempts: GetUserMediaAttempt[];
 };
 
 export type UpdatedDeviceInfo = {

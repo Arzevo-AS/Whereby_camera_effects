@@ -8,7 +8,17 @@ import {
     doAppStop,
     doCancelKnock,
     doBreakoutJoin,
+    doStartBreakoutSession,
+    doUpdateBreakoutSession,
+    doStopBreakoutSession,
+    doAssignBreakoutParticipants,
+    doAssignAllBreakoutParticipants,
+    doUnassignAllBreakoutParticipants,
+    doShuffleBreakoutParticipants,
+    doExtendBreakoutTimer,
+    doStopBreakoutTimer,
     doEndMeeting,
+    doHoldWaitingParticipant,
     doKickParticipant,
     doKnockRoom,
     doLockRoom,
@@ -18,28 +28,40 @@ import {
     doRequestVideoEnable,
     doRtcReportStreamResolution,
     doSendChatMessage,
+    doRemoveChatMessage,
+    doSendFiles,
+    doDownloadFile,
     doSetLocalStickyReaction,
     doSpotlightParticipant,
     doStartCloudRecording,
+    doStartLiveCaptions,
     doStartLiveTranscription,
     doStartScreenshare,
     doStopCloudRecording,
+    doStopLiveCaptions,
     doStopLiveTranscription,
     doStopScreenshare,
     selectNotificationsEmitter,
     setDisplayName,
     signalEvents,
+    StartBreakoutSessionOptions,
+    UpdateBreakoutSessionOptions,
     startAppListening,
     toggleCameraEnabled,
+    toggleHdModeEnabled,
     toggleLowDataModeEnabled,
+    toggleWidescreenModeEnabled,
     toggleMicrophoneEnabled,
     AppConfig,
 } from "../../redux";
 import type { Store as AppStore } from "../../redux/store";
 import type {
     BreakoutState,
+    ChatFileShare,
     ChatMessage,
     CloudRecordingState,
+    FileUpload,
+    LiveCaptionsState,
     LiveTranscriptionState,
     LocalParticipantState,
     LocalScreenshareStatus,
@@ -57,6 +79,7 @@ import {
     CLOUD_RECORDING_STATUS_CHANGED,
     CONNECTION_ERROR_CHANGED,
     CONNECTION_STATUS_CHANGED,
+    LIVE_CAPTIONS_STATUS_CHANGED,
     LIVE_TRANSCRIPTION_STATUS_CHANGED,
     LOCAL_PARTICIPANT_CHANGED,
     LOCAL_SCREENSHARE_STATUS_CHANGED,
@@ -77,6 +100,7 @@ import {
 import { selectRoomConnectionState } from "./selector";
 import { BaseClient } from "../BaseClient";
 import { doCameraEffectsSwitchPreset } from "../../redux/slices/cameraEffects";
+import { doAudioDenoiserDisable, doAudioDenoiserEnable } from "../../redux/slices/audioDenoiser";
 
 export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomConnectionEvents> {
     protected options: Partial<AppConfig>;
@@ -85,10 +109,12 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     private breakoutSubscribers = new Set<(config: BreakoutState) => void>();
     private cameraStateSubscribers = new Set<(isCameraEnabled: boolean) => void>();
     private chatMessageSubscribers = new Set<(messages: ChatMessage[]) => void>();
+    private fileUploadsSubscribers = new Set<(uploads: FileUpload[]) => void>();
     private cloudRecordingSubscribers = new Set<(status: CloudRecordingState | undefined | undefined) => void>();
     private connectionErrorSubscribers = new Set<(status: string | null) => void>();
     private connectionStatusSubscribers = new Set<(status: ConnectionStatus) => void>();
     private liveStreamSubscribers = new Set<(status: { status: "streaming" } | undefined) => void>();
+    private liveCaptionsSubscribers = new Set<(status: LiveCaptionsState | undefined) => void>();
     private liveTranscriptionSubscribers = new Set<(status: LiveTranscriptionState | undefined) => void>();
     private localParticipantSubscribers = new Set<(participant?: LocalParticipantState) => void>();
     private localScreenshareStatusSubscribers = new Set<(status?: LocalScreenshareStatus) => void>();
@@ -109,9 +135,18 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
             this.chatMessageSubscribers.forEach((cb) => cb(state.chatMessages));
         }
 
+        if (state.fileUploads !== previousState.fileUploads) {
+            this.fileUploadsSubscribers.forEach((cb) => cb(state.fileUploads));
+        }
+
         if (state.cloudRecording !== previousState.cloudRecording) {
             this.cloudRecordingSubscribers.forEach((cb) => cb(state.cloudRecording));
             this.emit(CLOUD_RECORDING_STATUS_CHANGED, state.cloudRecording);
+        }
+
+        if (state.liveCaptions !== previousState.liveCaptions) {
+            this.liveCaptionsSubscribers.forEach((cb) => cb(state.liveCaptions));
+            this.emit(LIVE_CAPTIONS_STATUS_CHANGED, state.liveCaptions);
         }
 
         if (state.liveTranscription !== previousState.liveTranscription) {
@@ -240,7 +275,10 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
         startAppListening({
             actionCreator: signalEvents.chatMessage,
             effect: ({ payload }) => {
-                this.emit(CHAT_NEW_MESSAGE, payload);
+                this.emit(CHAT_NEW_MESSAGE, {
+                    ...payload,
+                    removed: false,
+                });
             },
         });
     }
@@ -251,9 +289,19 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
         return () => this.chatMessageSubscribers.delete(callback);
     }
 
+    public subscribeToFileUploads(callback: (uploads: FileUpload[]) => void): () => void {
+        this.fileUploadsSubscribers.add(callback);
+        return () => this.fileUploadsSubscribers.delete(callback);
+    }
+
     public subscribeToCloudRecording(callback: (status: CloudRecordingState | undefined) => void): () => void {
         this.cloudRecordingSubscribers.add(callback);
         return () => this.cloudRecordingSubscribers.delete(callback);
+    }
+
+    public subscribeToLiveCaptions(callback: (status: LiveCaptionsState | undefined) => void): () => void {
+        this.liveCaptionsSubscribers.add(callback);
+        return () => this.liveCaptionsSubscribers.delete(callback);
     }
 
     public subscribeToLiveTranscription(callback: (status: LiveTranscriptionState | undefined) => void): () => void {
@@ -400,9 +448,37 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     /**
      * Send a chat message to the room.
      * @param text - The message text to send.
+     * @param parentId - Optional id of the message this is a reply to.
+     * @param isBroadcast - When true and a breakout session is active, the message is broadcast to all
+     * breakout groups instead of only the sender's group.
      */
-    public sendChatMessage(text: string) {
-        this.store.dispatch(doSendChatMessage({ text }));
+    public sendChatMessage(text: string, parentId?: string, isBroadcast?: boolean) {
+        this.store.dispatch(doSendChatMessage({ text, parentId, isBroadcast }));
+    }
+
+    /**
+     * Remove a chat message from the room.
+     * @param id - The message id to remove.
+     * @param sig - The message signature to use to authorize removal.
+     */
+    public removeChatMessage(id: string, sig?: string | null) {
+        this.store.dispatch(doRemoveChatMessage({ id, sig }));
+    }
+
+    /**
+     * Upload files and share them with the room as chat messages.
+     * @param files - The files to share.
+     */
+    public sendFiles(files: File[]) {
+        this.store.dispatch(doSendFiles({ files }));
+    }
+
+    /**
+     * Download a shared file. Resolves with the file contents as a Blob
+     * @param file - The shared file to download.
+     */
+    public downloadFile(file: ChatFileShare): Promise<Blob> {
+        return this.store.dispatch(doDownloadFile({ file })).unwrap();
     }
 
     /**
@@ -455,12 +531,30 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     }
 
     /**
+     * Toggle video hd mode on or off.
+     * @param enabled - If true, enables hd mode; if false, disables it.
+     * If undefined, toggles the current state.
+     */
+    public toggleHdMode(enabled?: boolean) {
+        this.store.dispatch(toggleHdModeEnabled({ enabled }));
+    }
+
+    /**
      * Toggle low data mode on or off.
      * @param enabled - If true, enables low data mode; if false, disables it.
      * If undefined, toggles the current state.
      */
     public toggleLowDataMode(enabled?: boolean) {
         this.store.dispatch(toggleLowDataModeEnabled({ enabled }));
+    }
+
+    /**
+     * Toggle video widescreen mode on or off.
+     * @param enabled - If true, enables widescreen mode; if false, disables it.
+     * If undefined, toggles the current state.
+     */
+    public toggleWidescreenMode(enabled?: boolean) {
+        this.store.dispatch(toggleWidescreenModeEnabled({ enabled }));
     }
 
     /**
@@ -497,11 +591,22 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     }
 
     /**
-     * Reject a waiting participant.
-     * @param participantId - The ID of the participant to reject.
+     * Put a waiting participant on hold, optionally sending them a message.
+     * The participant remains in the waiting room.
+     * @param participantId - The ID of the participant to put on hold.
+     * @param response - An optional message to show the waiting participant.
      */
-    public rejectWaitingParticipant(participantId: string) {
-        this.store.dispatch(doRejectWaitingParticipant({ participantId }));
+    public holdWaitingParticipant(participantId: string, response?: string) {
+        this.store.dispatch(doHoldWaitingParticipant({ participantId, response }));
+    }
+
+    /**
+     * Reject a waiting participant, optionally sending them a message.
+     * @param participantId - The ID of the participant to reject.
+     * @param response - An optional message to show the rejected participant.
+     */
+    public rejectWaitingParticipant(participantId: string, response?: string) {
+        this.store.dispatch(doRejectWaitingParticipant({ participantId, response }));
     }
 
     /**
@@ -530,6 +635,20 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
      */
     public stopLiveTranscription() {
         this.store.dispatch(doStopLiveTranscription());
+    }
+
+    /**
+     * Start live captions.
+     */
+    public startLiveCaptions() {
+        this.store.dispatch(doStartLiveCaptions());
+    }
+
+    /**
+     * Stop live captions.
+     */
+    public stopLiveCaptions() {
+        this.store.dispatch(doStopLiveCaptions());
     }
 
     /**
@@ -621,6 +740,93 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     }
 
     /**
+     * Start a breakout session. Requires host privileges.
+     * @param options - The groups, optional participant assignments and session settings.
+     */
+    public startBreakoutSession(options: StartBreakoutSessionOptions) {
+        this.store.dispatch(doStartBreakoutSession(options));
+    }
+
+    /**
+     * Update an ongoing breakout session's groups and/or settings. Requires host privileges.
+     * @param options - The groups, participant assignments and session settings to update.
+     */
+    public updateBreakoutSession(options: UpdateBreakoutSessionOptions) {
+        this.store.dispatch(doUpdateBreakoutSession(options));
+    }
+
+    /**
+     * Stop the ongoing breakout session. Requires host privileges.
+     */
+    public stopBreakoutSession() {
+        this.store.dispatch(doStopBreakoutSession());
+    }
+
+    /**
+     * Assign participants to breakout groups. Requires host privileges.
+     * @param assignments - A map of participant `clientId -> groupId`. Merged with the current
+     * assignments (participants not included keep theirs); an empty `groupId` unassigns the participant.
+     */
+    public assignBreakoutParticipants(assignments: { [clientId: string]: string }) {
+        this.store.dispatch(doAssignBreakoutParticipants({ assignments }));
+    }
+
+    /**
+     * Randomly distribute all remote participants across the breakout groups. Requires host privileges.
+     */
+    public assignAllBreakoutParticipants() {
+        this.store.dispatch(doAssignAllBreakoutParticipants());
+    }
+
+    /**
+     * Clear all breakout group assignments. Requires host privileges.
+     */
+    public unassignAllBreakoutParticipants() {
+        this.store.dispatch(doUnassignAllBreakoutParticipants());
+    }
+
+    /**
+     * Re-shuffle the currently-assigned participants across the breakout groups. Requires host privileges.
+     */
+    public shuffleBreakoutParticipants() {
+        this.store.dispatch(doShuffleBreakoutParticipants());
+    }
+
+    /**
+     * Extend the running breakout timer. Requires host privileges.
+     * @param seconds - Number of seconds to add (default 60).
+     */
+    public extendBreakoutTimer(seconds?: number) {
+        this.store.dispatch(doExtendBreakoutTimer({ seconds }));
+    }
+
+    /**
+     * Stop the running breakout timer (the session itself stays active). Requires host privileges.
+     */
+    public stopBreakoutTimer() {
+        this.store.dispatch(doStopBreakoutTimer());
+    }
+
+    /**
+     * Broadcast a main-room participant's audio/video into all breakout groups. This spotlights the
+     * participant; during an active breakout the SFU routes their stream into every group. Requires
+     * host privileges.
+     * @param participantId - The clientId of the participant to broadcast.
+     */
+    public broadcastToGroups(participantId: string) {
+        this.store.dispatch(doSpotlightParticipant({ id: participantId }));
+    }
+
+    /**
+     * Stop broadcasting a participant into the breakout groups (removes their spotlight). Requires
+     * host privileges.
+     * @param participantId - The clientId of the participant to stop broadcasting.
+     */
+    public stopBroadcastToGroups(participantId: string) {
+        this.store.dispatch(doRemoveSpotlight({ id: participantId }));
+    }
+
+    /**
      * Report stream resolution.
      * @param streamId - The ID of the stream to report.
      * @param width - The width of the stream.
@@ -678,6 +884,33 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
     }
 
     /**
+     * Enable audio noise suppression on the local microphone stream. The
+     * denoiser is automatically reapplied if the microphone device is later
+     * switched. The denoiser code is loaded on demand the first time it is
+     * enabled.
+     */
+    public async enableAudioDenoiser(): Promise<void> {
+        try {
+            await this.store.dispatch(doAudioDenoiserEnable());
+        } catch (error) {
+            return Promise.reject(error);
+        }
+        return Promise.resolve();
+    }
+
+    /**
+     * Disable audio noise suppression and revert to the raw microphone stream.
+     */
+    public async disableAudioDenoiser(): Promise<void> {
+        try {
+            await this.store.dispatch(doAudioDenoiserDisable());
+        } catch (error) {
+            return Promise.reject(error);
+        }
+        return Promise.resolve();
+    }
+
+    /**
      * Destroy the client.
      * This method will stop the app and reset the client state.
      */
@@ -689,6 +922,7 @@ export class RoomConnectionClient extends BaseClient<RoomConnectionState, RoomCo
         this.breakoutSubscribers.clear();
         this.cameraStateSubscribers.clear();
         this.chatMessageSubscribers.clear();
+        this.fileUploadsSubscribers.clear();
         this.cloudRecordingSubscribers.clear();
         this.connectionErrorSubscribers.clear();
         this.connectionStatusSubscribers.clear();

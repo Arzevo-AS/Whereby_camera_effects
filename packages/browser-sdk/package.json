@@ -1,6 +1,6 @@
 {
     "name": "@whereby.com/browser-sdk",
-    "version": "3.20.10",
+    "version": "3.29.2",
     "description": "Modules for integration Whereby video in web apps",
     "author": "Whereby AS",
     "license": "MIT",
@@ -55,7 +55,6 @@
         "build-storybook": "storybook build"
     },
     "devDependencies": {
-        "@whereby.com/camera-effects": "workspace:*",
         "@whereby.com/eslint-config": "workspace:*",
         "@whereby.com/jest-config": "workspace:*",
         "@whereby.com/prettier-config": "workspace:*",
@@ -88,8 +87,8 @@
     },
     "dependencies": {
         "@radix-ui/react-popover": "^1.0.7",
-        "@whereby.com/media": "8.2.8",
-        "@whereby.com/core": "1.10.10",
+        "@whereby.com/media": "9.7.0",
+        "@whereby.com/core": "1.18.2",
         "clsx": "^2.1.1",
         "heresy": "^1.0.4",
         "runes": "^0.4.3"

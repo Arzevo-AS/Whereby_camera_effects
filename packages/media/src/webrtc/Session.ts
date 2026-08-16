@@ -6,6 +6,7 @@ import rtcStats from "./rtcStatsService";
 import { MediaPrefs, SignalRTCSessionDescription } from "./types";
 import { P2PIncrementAnalyticMetric } from "./P2pRtcManager";
 import { trackAnnotations } from "../utils/annotations";
+import { type ConnectionStatus } from "../model";
 
 // @ts-ignore
 const adapter = adapterRaw.default ?? adapterRaw;
@@ -30,7 +31,7 @@ export default class Session {
     mdnsHostCandidateSeen: boolean;
     pc: RTCPeerConnection;
     wasEverConnected: boolean;
-    connectionStatus: any;
+    connectionStatus: ConnectionStatus | null;
     bandwidth: any;
     pending: any[];
     isOperationPending: boolean;
@@ -41,10 +42,10 @@ export default class Session {
     registerConnected?: (value: unknown) => void;
     _deprioritizeH264Encoding: boolean;
     _mediaPrefs?: MediaPrefs;
-    clientId: any;
+    clientId: string;
     peerConnectionConfig: RTCConfiguration;
-    signalingState: any;
-    srdComplete: any;
+    signalingState: RTCPeerConnection["signalingState"];
+    srdComplete?: ReturnType<RTCPeerConnection["setRemoteDescription"]>;
     _incrementAnalyticMetric: P2PIncrementAnalyticMetric;
     pendingReplaceTrackActions: (() => Promise<void>)[];
 
@@ -125,15 +126,6 @@ export default class Session {
 
         const stream = this.streams[0];
 
-        this._incrementAnalyticMetric("P2PSessionAddTrack");
-        rtcStats.sendEvent("P2PSessionAddTrack", {
-            trackId: track.id,
-            kind: track.kind,
-            hasSessionStream: !!stream,
-            trackOfSameKindInStream: !!stream?.getTracks().filter((t) => t.kind === track.kind && t.id !== track.id)
-                .length,
-        });
-
         // TODO: remove responsibility to add track from Session.
         stream?.addTrack(track);
 
@@ -158,6 +150,10 @@ export default class Session {
         });
     }
 
+    expectNewRemoteDescription() {
+        this.srdComplete = undefined;
+    }
+
     _setRemoteDescription(desc: SignalRTCSessionDescription): Promise<void> {
         // deprioritize H264 Encoding if set by option/flag
         if (this._deprioritizeH264Encoding) desc.sdp = sdpModifier.deprioritizeH264(desc.sdp);
@@ -165,7 +161,7 @@ export default class Session {
         // wrapper around SRD which stores a promise
         this.srdComplete = this.pc.setRemoteDescription(desc);
         return this.srdComplete.then(() => {
-            this.earlyIceCandidates.forEach((candidate) => this.pc.addIceCandidate(candidate));
+            this.earlyIceCandidates.forEach((candidate) => this.addIceCandidate(candidate));
             this.earlyIceCandidates = [];
         });
     }
@@ -212,6 +208,24 @@ export default class Session {
     }
 
     handleAnswer(message: SignalRTCSessionDescription) {
+        // An answer is only valid when we have a pending local offer. If the PC was
+        // recreated (e.g. signal-server reconnect after an ICE restart), an in-flight
+        // answer from the previous PC can land here and would otherwise throw
+        // "Called in wrong state: stable".
+        if (this.pc.signalingState !== "have-local-offer") {
+            logger.warn(
+                "Ignoring stale SDP answer for client %s (signalingState: %s)",
+                this.clientId,
+                this.pc.signalingState,
+            );
+            this._incrementAnalyticMetric("P2PStaleAnswerIgnored");
+            rtcStats.sendEvent("P2PStaleAnswerIgnored", {
+                clientId: this.clientId,
+                signalingState: this.pc.signalingState,
+            });
+            return Promise.resolve();
+        }
+
         const sdp = sdpModifier.filterMsidSemantic(message.sdp);
 
         const desc = { type: message.type, sdp };
@@ -237,6 +251,14 @@ export default class Session {
             }
             this.pc.addIceCandidate(candidate).catch((e: any) => {
                 logger.warn("Failed to add ICE candidate ('%s'): %s", candidate ? candidate.candidate : null, e);
+                this._incrementAnalyticMetric("P2PAddIceCandidateFailure");
+                rtcStats.sendEvent("P2PAddIceCandidateFailure", {
+                    clientId: this.clientId,
+                    errorName: e?.name,
+                    errorMessage: e?.message,
+                    signalingState: this.pc.signalingState,
+                    iceConnectionState: this.pc.iceConnectionState,
+                });
             });
         });
     }

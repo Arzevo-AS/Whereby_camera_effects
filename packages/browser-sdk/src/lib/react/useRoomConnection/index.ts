@@ -1,5 +1,12 @@
 import * as React from "react";
-import { AppConfig, NotificationsEventEmitter, RoomConnectionState } from "@whereby.com/core";
+import {
+    AppConfig,
+    ChatFileShare,
+    NotificationsEventEmitter,
+    RoomConnectionState,
+    StartBreakoutSessionOptions,
+    UpdateBreakoutSessionOptions,
+} from "@whereby.com/core";
 
 import { RoomConnectionActions, UseRoomConnectionOptions } from "./types";
 import { browserSdkVersion } from "../version";
@@ -68,13 +75,28 @@ export function useRoomConnection(
         client.initialize(roomConfig);
         return client.joinRoom();
     }, [client]);
-    const sendChatMessage = React.useCallback((text: string) => client.sendChatMessage(text), [client]);
+    const sendChatMessage = React.useCallback(
+        (text: string, parentId?: string, isBroadcast?: boolean) =>
+            client.sendChatMessage(text, parentId, isBroadcast),
+        [client],
+    );
+    const removeChatMessage = React.useCallback(
+        (id: string, sig?: string | null) => client.removeChatMessage(id, sig),
+        [client],
+    );
+    const sendFiles = React.useCallback((files: File[]) => client.sendFiles(files), [client]);
+    const downloadFile = React.useCallback((file: ChatFileShare) => client.downloadFile(file), [client]);
     const knock = React.useCallback(() => client.knock(), [client]);
     const cancelKnock = React.useCallback(() => client.cancelKnock(), [client]);
     const setDisplayName = React.useCallback((displayName: string) => client.setDisplayName(displayName), [client]);
     const toggleCamera = React.useCallback((enabled?: boolean) => client.toggleCamera(enabled), [client]);
     const toggleMicrophone = React.useCallback((enabled?: boolean) => client.toggleMicrophone(enabled), [client]);
+    const toggleHdMode = React.useCallback((enabled?: boolean) => client.toggleHdMode(enabled), [client]);
     const toggleLowDataMode = React.useCallback((enabled?: boolean) => client.toggleLowDataMode(enabled), [client]);
+    const toggleWidescreenMode = React.useCallback(
+        (enabled?: boolean) => client.toggleWidescreenMode(enabled),
+        [client],
+    );
     const toggleRaiseHand = React.useCallback((enabled?: boolean) => client.toggleRaiseHand(enabled), [client]);
     const askToSpeak = React.useCallback((participantId: string) => client.askToSpeak(participantId), [client]);
     const askToTurnOnCamera = React.useCallback(
@@ -85,14 +107,20 @@ export function useRoomConnection(
         (participantId: string) => client.acceptWaitingParticipant(participantId),
         [client],
     );
+    const holdWaitingParticipant = React.useCallback(
+        (participantId: string, response?: string) => client.holdWaitingParticipant(participantId, response),
+        [client],
+    );
     const rejectWaitingParticipant = React.useCallback(
-        (participantId: string) => client.rejectWaitingParticipant(participantId),
+        (participantId: string, response?: string) => client.rejectWaitingParticipant(participantId, response),
         [client],
     );
     const startCloudRecording = React.useCallback(() => client.startCloudRecording(), [client]);
+    const startLiveCaptions = React.useCallback(() => client.startLiveCaptions(), [client]);
     const startLiveTranscription = React.useCallback(() => client.startLiveTranscription(), [client]);
     const startScreenshare = React.useCallback(() => client.startScreenshare(), [client]);
     const stopCloudRecording = React.useCallback(() => client.stopCloudRecording(), [client]);
+    const stopLiveCaptions = React.useCallback(() => client.stopLiveCaptions(), [client]);
     const stopLiveTranscription = React.useCallback(() => client.stopLiveTranscription(), [client]);
     const stopScreenshare = React.useCallback(() => client.stopScreenshare(), [client]);
     const leaveRoom = React.useCallback(() => client.leaveRoom(), [client]);
@@ -120,6 +148,38 @@ export function useRoomConnection(
     const endMeeting = React.useCallback((stayBehind?: boolean) => client.endMeeting(stayBehind), [client]);
     const joinBreakoutGroup = React.useCallback((group: string) => client.joinBreakoutGroup(group), [client]);
     const joinBreakoutMainRoom = React.useCallback(() => client.joinBreakoutMainRoom(), [client]);
+    const startBreakoutSession = React.useCallback(
+        (options: StartBreakoutSessionOptions) => client.startBreakoutSession(options),
+        [client],
+    );
+    const updateBreakoutSession = React.useCallback(
+        (options: UpdateBreakoutSessionOptions) => client.updateBreakoutSession(options),
+        [client],
+    );
+    const stopBreakoutSession = React.useCallback(() => client.stopBreakoutSession(), [client]);
+    const assignBreakoutParticipants = React.useCallback(
+        (assignments: { [clientId: string]: string }) => client.assignBreakoutParticipants(assignments),
+        [client],
+    );
+    const assignAllBreakoutParticipants = React.useCallback(
+        () => client.assignAllBreakoutParticipants(),
+        [client],
+    );
+    const unassignAllBreakoutParticipants = React.useCallback(
+        () => client.unassignAllBreakoutParticipants(),
+        [client],
+    );
+    const shuffleBreakoutParticipants = React.useCallback(() => client.shuffleBreakoutParticipants(), [client]);
+    const extendBreakoutTimer = React.useCallback((seconds?: number) => client.extendBreakoutTimer(seconds), [client]);
+    const stopBreakoutTimer = React.useCallback(() => client.stopBreakoutTimer(), [client]);
+    const broadcastToGroups = React.useCallback(
+        (participantId: string) => client.broadcastToGroups(participantId),
+        [client],
+    );
+    const stopBroadcastToGroups = React.useCallback(
+        (participantId: string) => client.stopBroadcastToGroups(participantId),
+        [client],
+    );
     const switchCameraEffect = React.useCallback(
         async (effectId: string) => {
             await client.switchCameraEffect(effectId);
@@ -135,6 +195,12 @@ export function useRoomConnection(
     const clearCameraEffect = React.useCallback(async () => {
         await client.clearCameraEffect();
     }, [client]);
+    const enableAudioDenoiser = React.useCallback(async () => {
+        await client.enableAudioDenoiser();
+    }, [client]);
+    const disableAudioDenoiser = React.useCallback(async () => {
+        await client.disableAudioDenoiser();
+    }, [client]);
 
     const { events, ...state } = roomConnectionState;
 
@@ -142,11 +208,10 @@ export function useRoomConnection(
         state,
         events,
         actions: {
-            toggleLowDataMode,
-            toggleRaiseHand,
             askToSpeak,
             askToTurnOnCamera,
             acceptWaitingParticipant,
+            holdWaitingParticipant,
             knock,
             cancelKnock,
             joinRoom,
@@ -158,22 +223,44 @@ export function useRoomConnection(
             endMeeting,
             rejectWaitingParticipant,
             sendChatMessage,
+            removeChatMessage,
+            sendFiles,
+            downloadFile,
             setDisplayName,
             startCloudRecording,
+            startLiveCaptions,
             startLiveTranscription,
             startScreenshare,
             stopCloudRecording,
+            stopLiveCaptions,
             stopLiveTranscription,
             stopScreenshare,
             toggleCamera,
             toggleMicrophone,
+            toggleRaiseHand,
+            toggleHdMode,
+            toggleLowDataMode,
+            toggleWidescreenMode,
             spotlightParticipant,
             removeSpotlight,
             joinBreakoutGroup,
             joinBreakoutMainRoom,
+            startBreakoutSession,
+            updateBreakoutSession,
+            stopBreakoutSession,
+            assignBreakoutParticipants,
+            assignAllBreakoutParticipants,
+            unassignAllBreakoutParticipants,
+            shuffleBreakoutParticipants,
+            extendBreakoutTimer,
+            stopBreakoutTimer,
+            broadcastToGroups,
+            stopBroadcastToGroups,
             switchCameraEffect,
             switchCameraEffectCustom,
             clearCameraEffect,
+            enableAudioDenoiser,
+            disableAudioDenoiser,
         },
     };
 }

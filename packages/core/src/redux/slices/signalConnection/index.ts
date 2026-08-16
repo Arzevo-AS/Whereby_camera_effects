@@ -9,14 +9,20 @@ import {
     AudioEnabledEvent,
     BreakoutGroupJoinedEvent,
     ChatMessage,
+    ChatMessageRemoved,
+    ChatMessageError,
+    isFileShareError,
     ClientKickedEvent,
     ClientLeftEvent,
     ClientMetadataReceivedEvent,
     ClientUnableToJoinEvent,
     CloudRecordingStartedEvent,
     KnockAcceptedEvent,
+    KnockOnHoldEvent,
     KnockRejectedEvent,
     KnockerLeftEvent,
+    LiveCaptionsStartedEvent,
+    LiveCaptionEvent,
     LiveTranscriptionStartedEvent,
     LiveTranscriptionStoppedEvent,
     NewClientEvent,
@@ -32,6 +38,7 @@ import {
     VideoEnabledEvent,
     VideoEnableRequestedEvent,
     BreakoutSessionUpdatedEvent,
+    LiveCaptionsStoppedEvent,
 } from "@whereby.com/media";
 import { Credentials } from "../../../api";
 import { selectAppIsActive } from "../app";
@@ -54,7 +61,16 @@ function forwardSocketEvents(socket: ServerSocket, dispatch: ThunkDispatch<RootS
     socket.on("client_metadata_received", (payload: ClientMetadataReceivedEvent) =>
         dispatch(signalEvents.clientMetadataReceived(payload)),
     );
-    socket.on("chat_message", (payload: ChatMessage) => dispatch(signalEvents.chatMessage(payload)));
+    socket.on("chat_message", (payload: ChatMessage | ChatMessageError) => {
+        if (isFileShareError(payload)) {
+            dispatch(signalEvents.fileSharingError(payload));
+            return;
+        }
+        dispatch(signalEvents.chatMessage(payload));
+    });
+    socket.on("chat_message_removed", (payload: ChatMessageRemoved) =>
+        dispatch(signalEvents.chatMessageRemoved(payload)),
+    );
     socket.on("disconnect", () => dispatch(signalEvents.disconnect()));
     socket.on("room_knocked", (payload: RoomKnockedEvent) => dispatch(signalEvents.roomKnocked(payload)));
     socket.on("room_left", () => dispatch(signalEvents.roomLeft()));
@@ -63,7 +79,7 @@ function forwardSocketEvents(socket: ServerSocket, dispatch: ThunkDispatch<RootS
         dispatch(signalEvents.roomSessionEnded(payload)),
     );
     socket.on("knocker_left", (payload: KnockerLeftEvent) => dispatch(signalEvents.knockerLeft(payload)));
-    socket.on("knock_handled", (payload: KnockAcceptedEvent | KnockRejectedEvent) =>
+    socket.on("knock_handled", (payload: KnockAcceptedEvent | KnockOnHoldEvent | KnockRejectedEvent) =>
         dispatch(signalEvents.knockHandled(payload)),
     );
     socket.on("screenshare_started", (payload: ScreenshareStartedEvent) =>
@@ -87,8 +103,13 @@ function forwardSocketEvents(socket: ServerSocket, dispatch: ThunkDispatch<RootS
     socket.on("live_transcription_stopped", (payload: LiveTranscriptionStoppedEvent) =>
         dispatch(signalEvents.liveTranscriptionStopped(payload)),
     );
-    socket.on("live_captions_started", () => dispatch(signalEvents.liveCaptionsStarted()));
-    socket.on("live_captions_stopped", () => dispatch(signalEvents.liveCaptionsStopped()));
+    socket.on("live_captions_started", (payload: LiveCaptionsStartedEvent) =>
+        dispatch(signalEvents.liveCaptionsStarted(payload)),
+    );
+    socket.on("live_captions_stopped", (payload: LiveCaptionsStoppedEvent) =>
+        dispatch(signalEvents.liveCaptionsStopped(payload)),
+    );
+    socket.on("live_caption", (payload: LiveCaptionEvent) => dispatch(signalEvents.liveCaption(payload)));
     socket.on("video_enable_requested", (payload: VideoEnableRequestedEvent) =>
         dispatch(signalEvents.videoEnableRequested(payload)),
     );
@@ -100,6 +121,9 @@ function forwardSocketEvents(socket: ServerSocket, dispatch: ThunkDispatch<RootS
     );
     socket.on("breakout_move_to_group", () => dispatch(signalEvents.breakoutMoveToGroup()));
     socket.on("breakout_move_to_main", () => dispatch(signalEvents.breakoutMoveToMain()));
+    socket.on("breakout_ending", () => dispatch(signalEvents.breakoutEnding()));
+    socket.on("breakout_timer_ended", () => dispatch(signalEvents.breakoutTimerEnded()));
+    socket.on("breakout_timer_extended", () => dispatch(signalEvents.breakoutTimerExtended()));
 }
 
 const SIGNAL_BASE_URL = process.env.REACT_APP_SIGNAL_BASE_URL;

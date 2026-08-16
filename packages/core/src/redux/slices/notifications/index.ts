@@ -20,13 +20,14 @@ import {
     SignalStatusEventProps,
     SignalClientEventProps,
 } from "./events";
+import { selectSelfId } from "../localParticipant/selectors";
 export * from "./events";
 
 export type NotificationsEventEmitter = EventEmitter<NotificationEventMap>;
 
 const emitter: NotificationsEventEmitter = new EventEmitter();
 
-function createNotificationEvent<Type, PropsType>(
+export function createNotificationEvent<Type, PropsType>(
     payload: Notification<Type, PropsType>,
 ): NotificationEvent<Type, PropsType> {
     const notificationEvent = {
@@ -101,6 +102,13 @@ startAppListening({
     actionCreator: signalEvents.chatMessage,
     effect: ({ payload }: PayloadAction<SignalChatMessage>, { dispatch, getState }) => {
         const state = getState();
+
+        const selfId = selectSelfId(state);
+
+        if (selfId === payload.senderId) {
+            return;
+        }
+
         const client = selectRemoteParticipants(state).find(({ id }) => id === payload.senderId);
 
         if (!client) {
@@ -116,9 +124,13 @@ startAppListening({
                     props: {
                         client,
                         chatMessage: {
+                            id: payload.id,
                             senderId: payload.senderId,
+                            parentId: payload.parentId,
                             timestamp: payload.timestamp,
                             text: payload.text,
+                            sig: payload.sig,
+                            removed: false,
                         },
                     },
                 }),

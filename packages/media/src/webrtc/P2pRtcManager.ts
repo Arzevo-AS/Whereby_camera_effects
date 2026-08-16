@@ -28,6 +28,7 @@ import {
 import { ClearableTimeout, ScreenshareStoppedEvent, ServerSocket, sortCodecs, trackAnnotations } from "../utils";
 import { maybeTurnOnly, external_stun_servers, turnServerOverride } from "../utils/iceServers";
 import getConstraints from "./mediaConstraints";
+import { updateRenderedDimensions } from "./stats/StatsMonitor";
 
 interface CreateSessionOptions {
     clientId: string;
@@ -77,14 +78,14 @@ type P2PAnalytics = {
     numPcOnAnswerFailure: number;
     numPcOnOfferFailure: number;
     numPcSldFailure: number;
+    P2PStaleAnswerIgnored: number;
     P2PReplaceTrackNoStream: number;
     P2PReplaceTrackNewTrackNotInStream: number;
     P2POnTrackNoStream: number;
     P2PMicNotWorking: number;
     P2PLocalNetworkFailed: number;
     P2PRelayedIceCandidate: number;
-    P2PSessionAddTrack: number;
-    P2PAddTrackToPeerConnections: number;
+    P2PAddIceCandidateFailure: number;
 };
 
 type P2PAnalyticMetric = keyof P2PAnalytics;
@@ -125,6 +126,8 @@ export default class P2pRtcManager implements RtcManager {
     _closed: boolean;
     analytics: P2PAnalytics;
     _rtcStatsDisconnectTimeout?: ReturnType<typeof setTimeout>;
+    _webcamPaused?: boolean;
+    _videoTrackIdByStreamId: Record<string, string>;
 
     constructor({ selfId, room, emitter, serverSocket, webrtcProvider, features }: RtcManagerOptions) {
         const { name, session, iceServers, turnServers, mediaserverConfigTtlSeconds } = room;
@@ -142,6 +145,7 @@ export default class P2pRtcManager implements RtcManager {
         this._features = features || {};
         this._isAudioOnlyMode = false;
         this._closed = false;
+        this._videoTrackIdByStreamId = {};
 
         // Timeouts
         this._fetchMediaServersTimer = null;
@@ -191,14 +195,14 @@ export default class P2pRtcManager implements RtcManager {
             numPcSldFailure: 0,
             numPcOnAnswerFailure: 0,
             numPcOnOfferFailure: 0,
+            P2PStaleAnswerIgnored: 0,
             P2PReplaceTrackNoStream: 0,
             P2PReplaceTrackNewTrackNotInStream: 0,
             P2POnTrackNoStream: 0,
             P2PMicNotWorking: 0,
             P2PLocalNetworkFailed: 0,
             P2PRelayedIceCandidate: 0,
-            P2PSessionAddTrack: 0,
-            P2PAddTrackToPeerConnections: 0,
+            P2PAddIceCandidateFailure: 0,
         };
     }
 
@@ -212,9 +216,12 @@ export default class P2pRtcManager implements RtcManager {
 
     addCameraStream(
         stream: MediaStream,
-        { beforeEffectTracks = [] }: AddCameraStreamOptions = { beforeEffectTracks: [] },
+        { videoPaused, beforeEffectTracks = [] }: AddCameraStreamOptions = { beforeEffectTracks: [] },
     ) {
         logger.info("addCameraStream: [stream.id: %s]", stream.id);
+
+        this._webcamPaused = videoPaused;
+
         if (stream === this._localCameraStream) {
             // this can happen after reconnect. We do not want to add the stream to the
             // peerconnection again.
@@ -505,7 +512,7 @@ export default class P2pRtcManager implements RtcManager {
         this._roomSessionId = roomSessionId;
     }
 
-    _setConnectionStatus(session: Session, newStatus: string, clientId: string) {
+    _setConnectionStatus(session: Session, newStatus: CONNECTION_STATUS.ConnectionStatus, clientId: string) {
         const previousStatus = session.connectionStatus;
         if (previousStatus === newStatus) {
             return;
@@ -736,6 +743,7 @@ export default class P2pRtcManager implements RtcManager {
                 });
                 return;
             }
+            if (event.track.kind === "video") this._videoTrackIdByStreamId[stream.id] = event.track.id;
             if (session.streamIds.indexOf(stream.id) === -1) {
                 session.streamIds.push(stream.id);
                 this._emit(CONNECTION_STATUS.EVENTS.STREAM_ADDED as string, {
@@ -927,12 +935,6 @@ export default class P2pRtcManager implements RtcManager {
     }
 
     _addTrackToPeerConnections(track: MediaStreamTrack) {
-        this.analytics.P2PAddTrackToPeerConnections++;
-        rtcStats.sendEvent("P2PAddTrackToPeerConnections", {
-            trackId: track.id,
-            kind: track.kind,
-            readyState: track.readyState,
-        });
         this._forEachPeerConnection((session: Session) => {
             this._withForcedRenegotiation(session, () => session.addTrack(track));
         });
@@ -1165,6 +1167,9 @@ export default class P2pRtcManager implements RtcManager {
                             throw e;
                         })
                         .then(() => {
+                            // committed to a new ICE generation; buffer remote candidates until the matching answer
+                            session.expectNewRemoteDescription();
+
                             const message = {
                                 sdp: offer.sdp,
                                 sdpU: offer.sdp,
@@ -1281,7 +1286,20 @@ export default class P2pRtcManager implements RtcManager {
     }
 
     // this does not (currently) make sense for peer-to-peer connections
-    updateStreamResolution(/* streamId, clientId, resolution */) {}
+    updateStreamResolution(
+        streamId: string,
+        _ignored: any,
+        {
+            width,
+            height,
+        }: {
+            width: number;
+            height: number;
+        },
+    ) {
+        const trackId = this._videoTrackIdByStreamId[streamId];
+        if (trackId) updateRenderedDimensions(trackId, { width, height, time: Date.now() });
+    }
 
     stopOrResumeAudio(/*localStream, enable*/) {
         // detaches the audio from the peerconnection. No-op in P2P mode.
@@ -1302,6 +1320,9 @@ export default class P2pRtcManager implements RtcManager {
 
     stopOrResumeVideo(localStream: MediaStream, enable: boolean) {
         logger.info("stopOrResumeVideo() [enable: %s]", enable);
+
+        this._webcamPaused = !enable;
+
         // actually turn off the camera. Chrome-only (Firefox has different plans)
         if (!["chrome", "safari"].includes(browserName)) {
             return;
@@ -1343,6 +1364,13 @@ export default class P2pRtcManager implements RtcManager {
                     .getUserMedia({ video: constraints })
                     .then((stream) => {
                         const track = stream.getVideoTracks()[0];
+                        if (this._webcamPaused) {
+                            // if the user paused video inbetween the gUM call and the result,
+                            // we have to stop the track to avoid leaving the camera light on
+                            // and prevent sending video when we shouldn't be
+                            track.stop();
+                            return;
+                        }
                         localStream.addTrack(track);
                         this._monitorVideoTrack(track);
                         this._emit(CONNECTION_STATUS.EVENTS.LOCAL_STREAM_TRACK_ADDED as string, {

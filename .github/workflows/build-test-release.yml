@@ -13,13 +13,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout Repo
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+              uses: pnpm/action-setup@v6
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version-file: .nvmrc
                   cache: "pnpm"
@@ -70,6 +70,15 @@ jobs:
                   aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   package: "camera-effects"
                   dest_dir: "camera-effects"
+
+            - name: Deploy CDN assets - audio-denoiser
+              if: steps.changesets.outputs.published == 'true' && contains(fromJSON(steps.changesets.outputs.publishedPackages).*.name, '@whereby.com/audio-denoiser')
+              uses: ./.github/actions/deploy-cdn
+              with:
+                  aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  package: "audio-denoiser"
+                  dest_dir: "audio-denoiser"
 
             - name: Send Slack message
               if: steps.changesets.outputs.published == 'true'

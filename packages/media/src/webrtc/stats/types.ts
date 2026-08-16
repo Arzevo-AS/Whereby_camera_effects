@@ -27,10 +27,17 @@ export type PressureRecord = {
     time: number;
 };
 
+export type RenderedDimensionsReport = {
+    time: number;
+    width: number;
+    height: number;
+};
+
 export interface TrackStats {
     startTime: number;
     updated: number;
-    ssrcs: Record<number, SsrcStats>;
+    ssrcs: Record<string, SsrcStats>;
+    renderedDimensions?: RenderedDimensionsReport;
 }
 
 export interface ViewStats {
@@ -96,4 +103,13 @@ export interface SsrcStats {
     encodeTime?: number;
     sourceWidth?: number;
     sourceFps?: number;
+    freezeRate?: number;
+    freezeFraction?: number;
 }
+
+export type PCData = {
+    ssrcToTrackId: Record<string, string>;
+    currentSSRCs: Record<string, string>;
+    previousSSRCs?: Record<string, string>;
+    _oldReport?: RTCStatsReport;
+};
