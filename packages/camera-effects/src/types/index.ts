@@ -8,6 +8,8 @@ interface Pipeline {
             stream: MediaStream;
             stop: () => void;
             updateParams: (params: Params) => Promise<void> | Promise<boolean>;
+            // Feeds the effect from another camera, keeping the output track. Not with insertable streams.
+            setInputStream?: (inputStream: MediaStream) => Promise<void>;
         }>;
     };
     getDefaultSetup: () => {
@@ -19,11 +21,42 @@ interface Pipeline {
         canvasMemoryLeakWorkaround?: boolean;
         transferType?: string;
         useBackgroundWorker?: boolean;
+        // Where the avatar's face landmarker loads from. Defaults to jsdelivr and Google's model storage.
+        faceLandmarkerWasmUrl?: string;
+        faceLandmarkerModelUrl?: string;
     };
     canUse: (options: { allowSafari?: boolean }) => boolean;
 }
 
+type EffectAmount = "slight" | "normal" | "heavy";
+
+// An effect on one region of the frame, from the segmentation mask.
+type LayerEffect =
+    | {
+          type: "blur";
+          amount: EffectAmount;
+          greyscale?: boolean;
+      }
+    | {
+          type: "fill";
+          color: string;
+      };
+
+// Independent effects per layer. A layer left out shows the camera as is; no layers at all passes
+// the camera through untouched.
+interface LayerParams {
+    person?: LayerEffect;
+    background?: LayerEffect;
+    // Drawn over the other layers. Only the canvas engine draws it.
+    avatar?: {
+        type: "wireframe";
+        color?: string;
+    };
+}
+
 interface Params {
+    // Takes precedence over backgroundUrl, backgroundBlur, anonymization and avatar.
+    layers?: LayerParams;
     backgroundUrl?: Promise<unknown> | string;
     backgroundType?: "image" | "video";
     backgroundBlur?: {
@@ -54,4 +87,4 @@ interface Preset {
     };
 }
 
-export type { Pipeline, Params, Preset };
+export type { Pipeline, Params, Preset, EffectAmount, LayerEffect, LayerParams };

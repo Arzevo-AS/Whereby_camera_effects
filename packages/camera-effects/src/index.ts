@@ -3,7 +3,7 @@ import adapter from "webrtc-adapter";
 import * as tfliteSegmentCanvasEffectsModule from "./pipelines/tfliteSegmentCanvasEffects";
 import { loadSegmentationModel } from "./pipelines/tfliteSegmentCanvasEffects/segmentationModel";
 import { createBackgroundElement, fixBackgroundUrlPromise } from "./pipelines/shared";
-import { Params, Pipeline, Preset } from "./types";
+import { EffectAmount, LayerEffect, LayerParams, Params, Pipeline, Preset } from "./types";
 import { assetUrls, USE_CDN_ASSETS } from "./assetUrls";
 
 const getBackgroundUrl = async (name: keyof typeof assetUrls.backgrounds): Promise<{ default: string }> => {
@@ -282,6 +282,8 @@ presets.push(
     })),
 );
 
+const hasAvatar = (params?: Params | null) => !!(params?.layers ? params.layers.avatar : params?.avatar);
+
 // merges the default setup/params, with anything set by the preset, with anything set by the api user
 // returns the merged params, and the first pipeline that supports the preset
 const getPresetAndMergedParams = (presetId: string, setup?: Pipeline["getDefaultSetup"], params?: Params) => {
@@ -299,10 +301,10 @@ const getPresetAndMergedParams = (presetId: string, setup?: Pipeline["getDefault
     const pipeline = pipelines[pipelineId as keyof typeof pipelines];
     const mergedSetup = { ...pipeline.getDefaultSetup(), ...pipelineConfig?.setup, ...setup };
 
-    // only allow webGL if browser supports it
-    mergedSetup.useWebGL = mergedSetup.useWebGL && canUseWebGL;
-
     const mergedParams = { ...pipelineConfig?.params, ...params };
+
+    // only allow webGL if browser supports it, and not for avatars, which only the canvas engine draws
+    mergedSetup.useWebGL = mergedSetup.useWebGL && canUseWebGL && !hasAvatar(mergedParams);
     return { pipeline, mergedSetup, mergedParams };
 };
 
@@ -385,6 +387,54 @@ export const createEffectStream = async (
     return { stream, stop, tryUpdate };
 };
 
+// Layers only, so nothing from a preset's background or anonymization params applies. Null passes
+// the camera through.
+const toLayerParams = (layers: LayerParams | null): Params => ({ layers: layers ?? {} });
+
+// Like createEffectStream, but set up by layer params rather than a preset, and with an output
+// track that outlives param and camera changes: updateParams(null) passes the camera through, and
+// setInputStream feeds the effect from another camera. Meant for senders that can't swap tracks.
+// The avatar layer needs the canvas engine, so pass allowAvatar when it may be turned on later.
+export const createEffectProcessor = async (
+    inputStream: MediaStream,
+    layers: LayerParams | null,
+    { setup, allowAvatar = false }: { setup?: ReturnType<Pipeline["getDefaultSetup"]>; allowAvatar?: boolean } = {},
+) => {
+    const pipeline = pipelines.tfliteSegmentCanvasEffects;
+    const mergedSetup = { ...pipeline.getDefaultSetup(), ...setup, useInsertableStreams: false };
+    mergedSetup.useWebGL = mergedSetup.useWebGL && canUseWebGL && !allowAvatar && !layers?.avatar;
+
+    const {
+        stream,
+        stop: stopEffectStream,
+        updateParams,
+        setInputStream,
+    } = await pipeline.module.createEffectStream(
+        new MediaStream(inputStream.getVideoTracks()),
+        mergedSetup,
+        toLayerParams(layers),
+    );
+
+    const stopSafariHack =
+        adapter.browserDetails.browser === "safari" ? safariKeepAliveVideoSrcObjectHack() : () => undefined;
+
+    return {
+        stream,
+        updateParams: async (updatedLayers: LayerParams | null) => {
+            await updateParams(toLayerParams(updatedLayers));
+        },
+        setInputStream: async (nextInputStream: MediaStream) => {
+            await setInputStream?.(nextInputStream);
+        },
+        stop: () => {
+            stopSafariHack();
+            stopEffectStream();
+        },
+    };
+};
+
+export type EffectProcessor = Awaited<ReturnType<typeof createEffectProcessor>>;
+
 // returns list of usable presets. A custom filter ( ()=>true ) can be provided to test effects on unsupported browsers
 export const getUsablePresets = (
     {
@@ -458,4 +508,4 @@ export const setDefaultSetup = (pipelineId: string, setup: Pipeline["getDefaultS
 
 // types
 export type SetupOptions = ReturnType<Pipeline["getDefaultSetup"]>;
-export type { Params as EffectParams, Pipeline, Preset };
+export type { Params as EffectParams, Pipeline, Preset, EffectAmount, LayerEffect, LayerParams };

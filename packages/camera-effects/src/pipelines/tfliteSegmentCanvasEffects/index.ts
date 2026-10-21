@@ -24,7 +24,8 @@ export const createEffectStream = async (inputStream, setup, params) => {
     // list of functions to call when terminated
     const cleanup = [];
 
-    const inputVideoTrack = inputStream.getVideoTracks()[0];
+    // Replaced by setInputStream, which the output track's delegated properties follow.
+    let inputVideoTrack = inputStream.getVideoTracks()[0];
     const inputAudioTrack = inputStream.getAudioTracks()[0];
 
     let { width: videoWidth, height: videoHeight } = inputVideoTrack.getSettings();
@@ -61,6 +62,7 @@ export const createEffectStream = async (inputStream, setup, params) => {
 
     let resultCanvas;
     let outputTrack;
+    let setInputStream;
 
     if (setup.useInsertableStreams) {
         const trackProcessor = new window.MediaStreamTrackProcessor({ track: inputVideoTrack, maxBufferSize: 2 });
@@ -127,6 +129,19 @@ export const createEffectStream = async (inputStream, setup, params) => {
             videoElement.srcObject = new MediaStream([inputVideoTrack]); // we don't want audio
             videoElement.play();
         });
+
+        // Swaps the camera under the running effect. The output track stays the same, so whoever
+        // sends it never sees a track change.
+        setInputStream = async (nextInputStream) => {
+            const nextInputVideoTrack = nextInputStream.getVideoTracks()[0];
+            if (!nextInputVideoTrack || nextInputVideoTrack === inputVideoTrack) return;
+            // The output track's enabled state lives on the input track, so it carries over.
+            nextInputVideoTrack.enabled = inputVideoTrack.enabled;
+            inputVideoTrack = nextInputVideoTrack;
+            videoElement.srcObject = new MediaStream([nextInputVideoTrack]);
+            await videoElement.play().catch(() => undefined);
+            await onResizeInputStream();
+        };
 
         // keep video playing when hidden
         const onVisibilityChange = () => {
@@ -279,5 +294,5 @@ export const createEffectStream = async (inputStream, setup, params) => {
 
     // return a new stream with the new video track and old audio track
     const outputStream = new MediaStream([outputTrack, inputAudioTrack].filter((e) => e));
-    return { stream: outputStream, stop, updateParams };
+    return { stream: outputStream, stop, updateParams, setInputStream };
 };

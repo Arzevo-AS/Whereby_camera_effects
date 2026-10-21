@@ -94,10 +94,55 @@ function getAnonymizationEngineParams(params) {
     }
 }
 
+const LAYER_BLUR = {
+    slight: { radius: 0.9, kernel: "og6" },
+    normal: { radius: 1.7, kernel: "og9" },
+    heavy: { radius: 2.8, kernel: "og12" },
+};
+
+function getLayerModeParams(effect) {
+    if (effect?.type === "blur") {
+        const blur = LAYER_BLUR[effect.amount] ?? LAYER_BLUR.normal;
+        return { mode: MODE_BLUR, blurRadius: blur.radius, greyscale: !!effect.greyscale, color: "#ffffff" };
+    }
+    if (effect?.type === "fill") {
+        return { mode: MODE_COLOR, blurRadius: 0, greyscale: false, color: effect.color };
+    }
+    return { mode: MODE_NONE, blurRadius: 0, greyscale: false, color: "#ffffff" };
+}
+
+// Person and background each get their own mode in the anonymization stage. No layers renders the
+// frame as is. The avatar layer is not drawn by this engine.
+function getLayerEngineParams({ person, background }) {
+    const personParams = getLayerModeParams(person);
+    const backgroundParams = getLayerModeParams(background);
+    // Both layers share one kernel, so the stronger blur picks it.
+    const blurKernels = [person, background]
+        .filter((effect) => effect?.type === "blur")
+        .map((effect) => (LAYER_BLUR[effect.amount] ?? LAYER_BLUR.normal).kernel);
+    const blurKernel = ["og12", "og9", "og6"].find((kernel) => blurKernels.includes(kernel)) ?? "og8";
+    return {
+        blurKernel,
+        personMode: personParams.mode,
+        personBlurRadius: personParams.blurRadius,
+        personGreyscale: personParams.greyscale,
+        personColor: personParams.color,
+        backgroundMode: backgroundParams.mode,
+        backgroundBlurRadius: backgroundParams.blurRadius,
+        backgroundGreyscale: backgroundParams.greyscale,
+        backgroundColor: backgroundParams.color,
+        // Softens the edge between the layers, unless both are blurred anyway.
+        maskFeatherPx: person?.type === "blur" && background?.type === "blur" ? 0 : 8,
+    };
+}
+
 function getEngineParams(params) {
     const baseEngineParams = {
         coverage: params.coverage,
     };
+    if (params.layers) {
+        return { ...baseEngineParams, ...getLayerEngineParams(params.layers) };
+    }
     if (params.backgroundBlur) {
         return { ...baseEngineParams, ...getBlurEngineParams(params.backgroundBlur) };
     }
@@ -246,7 +291,7 @@ export async function createWebGLEngine(videoWidth, videoHeight, setup, effectCa
             tflite._runInference();
             tfliteOutputToMaskStage.render();
             improveMaskStage.render();
-            if (params.anonymization) {
+            if (params.anonymization || params.layers) {
                 anonymizationStage.render();
                 return;
             }
