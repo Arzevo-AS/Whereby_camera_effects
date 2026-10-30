@@ -95,9 +95,9 @@ function getAnonymizationEngineParams(params) {
 }
 
 const LAYER_BLUR = {
-    slight: { radius: 0.9, kernel: "og6" },
-    normal: { radius: 1.7, kernel: "og9" },
-    heavy: { radius: 2.8, kernel: "og12" },
+    slight: { radius: 1.7, kernel: "og9" },
+    normal: { radius: 2.8, kernel: "og12" },
+    heavy: { radius: 3.8, kernel: "og16" },
 };
 
 function getLayerModeParams(effect) {
@@ -120,7 +120,7 @@ function getLayerEngineParams({ person, background }) {
     const blurKernels = [person, background]
         .filter((effect) => effect?.type === "blur")
         .map((effect) => (LAYER_BLUR[effect.amount] ?? LAYER_BLUR.normal).kernel);
-    const blurKernel = ["og12", "og9", "og6"].find((kernel) => blurKernels.includes(kernel)) ?? "og8";
+    const blurKernel = ["og16", "og12", "og9"].find((kernel) => blurKernels.includes(kernel)) ?? "og8";
     return {
         blurKernel,
         personMode: personParams.mode,

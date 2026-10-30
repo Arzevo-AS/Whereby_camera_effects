@@ -91,7 +91,7 @@ function getAnonymizationCanvasParams(type, amount, greyscale, color, applyBackg
     return params;
 }
 
-const LAYER_BLUR_PX = { slight: 4, normal: 8, heavy: 16 };
+const LAYER_BLUR_PX = { slight: 8, normal: 16, heavy: 32 };
 
 function getLayerBlurFilter(effect) {
     const filter = `blur(${LAYER_BLUR_PX[effect.amount] ?? LAYER_BLUR_PX.normal}px)`;
